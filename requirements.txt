@@ -2,3 +2,4 @@ polars==0.20.22
 requests
 mistralai==0.1.8
 scikit-learn==1.4.2
+seaborn==0.13.2
