@@ -1,4 +1,4 @@
-from tests.api_key import API_KEY
+from api_key import API_KEY
 from mistralai.client import MistralClient
 import polars as pl 
 
@@ -18,11 +18,12 @@ def import_labelled_data(path: str = r"C:\Users\faune\Downloads\FinancialPhraseB
             ignore_errors=True,
             has_header=False
         )
-        .lazy()
         .rename({'column_1': 'sentences'})
         .select(pl.col('sentences').str.split('@').list.to_struct()).unnest('sentences')
         .rename({'field_0': 'sentences', 'field_1':'label'})
         .drop_nulls()
+        .unique()
+        .lazy()
     )
     return sentences
 
