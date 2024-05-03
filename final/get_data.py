@@ -10,10 +10,10 @@ Generated polars lazyframe with columns : sentences, labels, embeddings OR dates
 
 # import functions 
 
-def import_labelled_data(path: str = r"C:\Users\faune\Downloads\FinancialPhraseBank-v1.0\FinancialPhraseBank-v1.0\Sentences_AllAgree.txt") -> pl.LazyFrame:
+def import_labelled_data(t: str = "All") -> pl.LazyFrame:
     sentences = (
         pl.read_csv(
-            source= path,
+            source= fr"C:\Users\faune\Downloads\FinancialPhraseBank-v1.0\FinancialPhraseBank-v1.0\Sentences_{t}Agree.txt",
             separator="\t",
             ignore_errors=True,
             has_header=False
@@ -54,6 +54,6 @@ def add_embeddings_to_frame(frame: pl.LazyFrame):
 
 # synthactic sugar 
 
-def get_labelled_frame(path: str = r"C:\Users\faune\Downloads\FinancialPhraseBank-v1.0\FinancialPhraseBank-v1.0\Sentences_AllAgree.txt") -> pl.LazyFrame:
-    frame = import_labelled_data(path = path)
+def get_labelled_frame(t: str = 'All') -> pl.LazyFrame:
+    frame = import_labelled_data(t = t)
     return add_embeddings_to_frame(frame=frame)
