@@ -8,36 +8,46 @@ Adds embeddings with mistral AI
 Generated polars lazyframe with columns : sentences, labels, embeddings OR dates, sentences, embeddings
 """
 
-# import functions 
 
-def import_labelled_data(t: str = "All") -> pl.LazyFrame:
-    sentences = (
-        pl.read_csv(
-            source= fr"C:\Users\faune\Downloads\FinancialPhraseBank-v1.0\FinancialPhraseBank-v1.0\Sentences_{t}Agree.txt",
-            separator="\t",
-            ignore_errors=True,
-            has_header=False
+def import_sentences( dated: bool = False, consensus: str = "All") -> pl.LazyFrame:
+    """gets the raw formatted data from both data sets
+
+    Args:
+        dated (bool, optional): gets the sentences from the dated dataset (origin: lab1). Defaults to False.
+        consensus (str, optional): consensus for the labels on the 2nd dataset (undated, used to train finBERT). Defaults to "All".
+        Can be either "All", "75", "66" or "50". Don't forget to use a string data type even if you use the numbered options.
+
+    Returns:
+        pl.LazyFrame: lazyframe with 'sentences' and 'label' columns (and also 'date' if dated = True) 
+    """    
+    if dated:
+        sentences = (
+            pl.read_csv(r"C:\Users\faune\Downloads\lab1\lab1\data\dow_jones_news.csv", separator=';')
+            .with_columns(pl.col('news').str.split('***'))
+            .explode('news')
+            .group_by('Date').agg(pl.col('news'), pl.col('Label').first())
+            .sort('Date')
+            .rename({'Date': 'date', 'Label': 'label', 'news': 'sentences'})
+            .with_columns(pl.col('label').replace({0:'negative', 1:'positive'}))
+            .explode('sentences')
+            .lazy()
         )
-        .rename({'column_1': 'sentences'})
-        .select(pl.col('sentences').str.split('@').list.to_struct()).unnest('sentences')
-        .rename({'field_0': 'sentences', 'field_1':'label'})
-        .drop_nulls()
-        .unique()
-        .lazy()
-    )
+    else:
+        sentences = (
+            pl.read_csv(
+                source= fr"C:\Users\faune\Downloads\FinancialPhraseBank-v1.0\FinancialPhraseBank-v1.0\Sentences_{consensus}Agree.txt",
+                separator="\t",
+                ignore_errors=True,
+                has_header=False
+            )
+            .rename({'column_1': 'sentences'})
+            .select(pl.col('sentences').str.split('@').list.to_struct()).unnest('sentences')
+            .rename({'field_0': 'sentences', 'field_1':'label'})
+            .drop_nulls()
+            .unique()
+            .lazy()
+        )
     return sentences
-
-def import_dated_data(path: str = r"C:\Users\faune\Downloads\lab1\lab1\data\dow_jones_news.csv") -> pl.LazyFrame: #TODO 
-    return (pl.read_csv(path, separator=';')
-    .with_columns(pl.col('news').str.split('***'))
-    .explode('news')
-    .group_by('Date').agg(pl.col('news'), pl.col('Label').first())
-    .sort('Date')
-    .rename({'Date': 'date', 'Label': 'label', 'news': 'sentences'})
-    .with_columns(pl.col('label').replace({0:'negative', 1:'positive'}))
-    .explode('sentences')
-    )
-# getting embeddings 
 
 def _get_embeddings_by_chunks(data: list, chunk_size: int, api_key: str = API_KEY): # mostly COPIED FROM https://docs.mistral.ai/capabilities/embeddings/
     client = MistralClient(api_key=api_key)
@@ -45,9 +55,20 @@ def _get_embeddings_by_chunks(data: list, chunk_size: int, api_key: str = API_KE
     embeddings_response = [
         client.embeddings(model="mistral-embed", input=c) for c in chunks
     ]
-    return [d.embedding for e in embeddings_response for d in e.data]
+    return [d.embedding for e in embeddings_response for d in e.data] 
 
-def add_embeddings_to_frame(frame: pl.LazyFrame):
+def get_embeddings(dated: bool = False, consensus: str = 'All') -> pl.LazyFrame:
+    """gets the data along with an "embeddings" column
+
+    Args:
+        dated (bool, optional): gets the sentences from the dated dataset (origin: lab1). Defaults to False.
+        consensus (str, optional): consensus for the labels on the 2nd dataset (undated, used to train finBERT). Defaults to "All".
+        Can be either "All", "75", "66" or "50". Don't forget to use a string data type even if you use the numbered options.
+
+    Returns:
+        pl.LazyFrame: lazyframe with 'sentences', 'label' and 'embeddings' columns (and also 'date' if dated = True) 
+    """    
+    frame = import_sentences(dated=dated, consensus=consensus)
     return (
         frame
         .with_columns(
@@ -58,12 +79,3 @@ def add_embeddings_to_frame(frame: pl.LazyFrame):
         )
         .lazy()
     )
-
-# synthactic sugar 
-
-def get_labelled_frame(t: str = 'All', dated: bool = False) -> pl.LazyFrame:
-    if dated:
-        frame = import_dated_data()
-    else:
-        frame = import_labelled_data(t = t)
-    return add_embeddings_to_frame(frame=frame)
