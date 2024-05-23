@@ -28,7 +28,15 @@ def import_labelled_data(t: str = "All") -> pl.LazyFrame:
     return sentences
 
 def import_dated_data(path: str = r"C:\Users\faune\Downloads\lab1\lab1\data\dow_jones_news.csv") -> pl.LazyFrame: #TODO 
-    return pl.read_csv(path, separator=';')
+    return (pl.read_csv(path, separator=';')
+    .with_columns(pl.col('news').str.split('***'))
+    .explode('news')
+    .group_by('Date').agg(pl.col('news'), pl.col('Label').first())
+    .sort('Date')
+    .rename({'Date': 'date', 'Label': 'label', 'news': 'sentences'})
+    .with_columns(pl.col('label').replace({0:'negative', 1:'positive'}))
+    .explode('sentences')
+    )
 # getting embeddings 
 
 def _get_embeddings_by_chunks(data: list, chunk_size: int, api_key: str = API_KEY): # mostly COPIED FROM https://docs.mistral.ai/capabilities/embeddings/
