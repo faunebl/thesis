@@ -16,7 +16,7 @@ def import_sentences( dated: bool = False, consensus: str = "All", reduce_frame:
         dated (bool, optional): gets the sentences from the dated dataset (origin: lab1). Defaults to False.
         consensus (str, optional): consensus for the labels on the 2nd dataset (undated, used to train finBERT). Defaults to "All".
         Can be either "All", "75", "66" or "50". Don't forget to use a string data type even if you use the numbered options.
-        dated (bool, optional): reduces size of the frame from 1m + to ~20 000. 
+        reduce_frame (bool, optional): reduces size of the frame from 1m + to ~20 000. Defaults to True.
         (only data after 2011 + only euro characters + divides the nb of sentences per day by 40)
 
     Returns:
@@ -71,18 +71,20 @@ def _get_embeddings_by_chunks(data: list, chunk_size: int, api_key: str = API_KE
     ]
     return [d.embedding for e in embeddings_response for d in e.data] 
 
-def get_embeddings(dated: bool = False, consensus: str = 'All') -> pl.LazyFrame:
+def get_embeddings(dated: bool = False, consensus: str = 'All', reduce_frame: bool = True) -> pl.LazyFrame:
     """gets the data along with an "embeddings" column
 
     Args:
         dated (bool, optional): gets the sentences from the dated dataset (origin: lab1). Defaults to False.
         consensus (str, optional): consensus for the labels on the 2nd dataset (undated, used to train finBERT). Defaults to "All".
         Can be either "All", "75", "66" or "50". Don't forget to use a string data type even if you use the numbered options.
+        reduce_frame (bool, optional): reduces size of the frame from 1m + to ~20 000. Defaults to True.
+        (only data after 2011 + only euro characters + divides the nb of sentences per day by 40)
 
     Returns:
         pl.LazyFrame: lazyframe with 'sentences', 'label' and 'embeddings' columns (and also 'date' if dated = True) 
     """    
-    frame = import_sentences(dated=dated, consensus=consensus)
+    frame = import_sentences(dated=dated, consensus=consensus, reduce_frame=reduce_frame)
     return (
         frame
         .with_columns(
