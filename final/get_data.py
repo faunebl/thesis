@@ -9,13 +9,15 @@ Generated polars lazyframe with columns : sentences, labels, embeddings OR dates
 """
 
 
-def import_sentences( dated: bool = False, consensus: str = "All") -> pl.LazyFrame:
+def import_sentences( dated: bool = False, consensus: str = "All", reduce_frame: bool = True) -> pl.LazyFrame:
     """gets the raw formatted data from both data sets
 
     Args:
         dated (bool, optional): gets the sentences from the dated dataset (origin: lab1). Defaults to False.
         consensus (str, optional): consensus for the labels on the 2nd dataset (undated, used to train finBERT). Defaults to "All".
         Can be either "All", "75", "66" or "50". Don't forget to use a string data type even if you use the numbered options.
+        dated (bool, optional): reduces size of the frame from 1m + to ~20 000. 
+        (only data after 2011 + only euro characters + divides the nb of sentences per day by 40)
 
     Returns:
         pl.LazyFrame: lazyframe with 'sentences' and 'label' columns (and also 'date' if dated = True) 
@@ -32,6 +34,18 @@ def import_sentences( dated: bool = False, consensus: str = "All") -> pl.LazyFra
             .explode('sentences')
             .lazy()
         )
+        if reduce_frame:
+            sentences = (
+                sentences
+                .collect()
+                .filter(pl.col('date').dt.year().gt(2010), pl.col('sentences').str.contains(pattern = '[a-zA-Z]+'))
+                .group_by('date')
+                .agg(pl.col('sentences'), pl.col('label').first())
+                .with_columns(pl.col('sentences').list.gather_every(40))
+                .explode('sentences')
+                .sort('date')
+                .lazy()
+            )
     else:
         sentences = (
             pl.read_csv(
