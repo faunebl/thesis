@@ -28,7 +28,7 @@ def import_labelled_data(t: str = "All") -> pl.LazyFrame:
     return sentences
 
 def import_dated_data(path: str = r"C:\Users\faune\Downloads\lab1\lab1\data\dow_jones_news.csv") -> pl.LazyFrame: #TODO 
-    return pl.read_csv(path)
+    return pl.read_csv(path, separator=';')
 # getting embeddings 
 
 def _get_embeddings_by_chunks(data: list, chunk_size: int, api_key: str = API_KEY): # mostly COPIED FROM https://docs.mistral.ai/capabilities/embeddings/
@@ -53,6 +53,9 @@ def add_embeddings_to_frame(frame: pl.LazyFrame):
 
 # synthactic sugar 
 
-def get_labelled_frame(t: str = 'All') -> pl.LazyFrame:
-    frame = import_labelled_data(t = t)
+def get_labelled_frame(t: str = 'All', dated: bool = False) -> pl.LazyFrame:
+    if dated:
+        frame = import_dated_data()
+    else:
+        frame = import_labelled_data(t = t)
     return add_embeddings_to_frame(frame=frame)
