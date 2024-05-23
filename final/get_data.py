@@ -28,7 +28,7 @@ def import_sentences( dated: bool = False, consensus: str = "All") -> pl.LazyFra
             .group_by('Date').agg(pl.col('news'), pl.col('Label').first())
             .sort('Date')
             .rename({'Date': 'date', 'Label': 'label', 'news': 'sentences'})
-            .with_columns(pl.col('label').replace({0:'negative', 1:'positive'}))
+            .with_columns(pl.col('label').replace({0:'negative', 1:'positive'}), pl.col('date').cast(pl.Date))
             .explode('sentences')
             .lazy()
         )
