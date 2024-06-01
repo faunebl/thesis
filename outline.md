@@ -20,15 +20,40 @@ Show where/when analysis of embeddings has been performed in this context.
 
 ## Do transformers encode financial sentiment ? 
 K-means clustering for financial headlines embeddings. 
-Check if clusters replicate the original labels (e.g. graphs in get_graphs.ipynb).
+Check if clusters replicate the original labels (e.g. graphs in get_graphs.ipynb). (2 dimensiosn + 3 dimensions)
+With three clusters and then with two clusters
+
+Possibility to find sentences about the same company / with the same structure ? 
+Check cluster percentages in this context 
+However mention that results will be less significative because of smaller sample size
+Maybe select those that specifically mention numbers (leftmost clusters in phoenix)
+
 Check euclidian distances (after dimension reduction) between embeddings to see if there is a linear transform that could represent an encoding for financial sentiment.
-Should we compare results with regular sentiment ? (i.e. check euclidian distance between two identical sentences with opposite sentiment, such as "I hate my cat" vs. "I love my cat") (might not be possible because no database currently).
+No comparison with regular sentiment. 
+Dataset: from FinBERT (AllAgree)
 
 ## Are daily embeddings linked to markets ?
+Problem: find a way to have only one embedding per day... 
+
+Regroup US news: fast text language detection + database of countries to search with regex (if a country is mentioned)
+
 Here: regroup sentence embeddings per day, and test the correlation with various market data (VIX, index vol, index returns etc) -> pb: financial headlines might not be linked to a specific market/country/region. 
 We can also perform outlier detection and see if it might be correlated with exceptional market/historical events.
 Also perform analysis with lagged data (1d lag) to see if it would be applicable in real time. Compare the two results. 
+Dataset : Lab1
 
 ## Link between the two
 Regroup the results from the two experiments, see if they make sense together or if they contradict each other. 
 Make sure to show how both results could be biased either way, show vulnerabilities in the datasets, mention ways that the analysis could be improved.
+
+--- 
+
+#### TODO:
+- Intuitive explanation  of the following mechanisms: (might cut based on how long each part it) + quick review of the maths
+    - Embeddings matrix (initial)
+    - Attention 
+    - Transformer Block 
+This should be the 1st part 
+- Presentation of embeddings: show a concrete example of linear transform (code the graphs)
+    - 
+    
