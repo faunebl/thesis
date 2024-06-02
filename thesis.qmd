@@ -1,2 +1,38 @@
+---
+title: "Do LLMs encode financial sentiment ? An analysis of financial headlines embeddings"
+format: 
+    pdf: 
+        code-annotations: true
+css: |
+    p {
+        text-align: justify;
+    }
+---
 
+## Introduction
 
+## A broad overview of transformer models
+
+Like any model, transformers are defined by three main characteristics: the type of the input data, the set of transformations to that data, and the output of the model. The first important thing to realize is that the input data to a transformer will always be a sequence of "tokens". A token is actually a numerical vector with a fixed dimension, which we will denote $N$. Therefore, the total input data to a transformer is a matrix with dimensions $D \times N$, where $D$ is the number of tokens. This means that textual data has to be transformed into a matrix of tokens in order to be fed into the transformer. This is called *subword tokenization.* Although we won't delve into the specifics, the main thing to understand is that common word segments such as "ing", "ood" or "un" (as in believ*ing*, believ*ed*, *un*believable) , as well as common words ( "as", "the", "a"), are mapped to a set of vectors called the embedding matrix. This matrix can either be fixed, or learned in order to optimize the model. Therefore, when receiving a sentence, the model will split it into $D$ parts which will all have a corresponding vector in the embedding matrix. Once this is done, a set of transformations will be applied to the $D \times N$ matrix, and the output, in the form of a single $N$ dimensional vector, will be generated. This final vector is what we call an *embedding*.
+
+In order to understand meaning and context in sentences, Large Language Models (LLMs) transform words into vectors. The entire architecture of the LLM aims to modify the numbers inside the vectors, so that the entire context of the sentence becomes somehow integrated in one final vector. This final vector is what we call a sentence embedding. In this first part, we will describe the key mathematical operations that allow meaning to be encoded into sentence embeddings. We will then give an intuitive explanation behind the design choices of these mathematical operations, and show how embeddings can be intuitively understood. Finally, we will present the main mathematical methods that are commonly used to analyze embeddings.
+
+### [The transformer block: formal mathematical description]{.underline}
+
+### [An intuitive understanding of embeddings]{.underline}
+
+### [Mathematical methods to analyze embeddings]{.underline}
+
+## Analyzing embeddings
+
+### [K-means clustering on labeled data]{.underline}
+
+### [Cosine similarity and euclidean distances on dated data]{.underline}
+
+### [Comparing results]{.underline}
+
+## Conclusion
+
+## Bibliography
+
+## Annexe
