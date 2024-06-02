@@ -1,23 +1,83 @@
 ---
 title: "Do LLMs encode financial sentiment ? An analysis of financial headlines embeddings"
-format: 
-    pdf: 
-        code-annotations: true
+format:
+  pdf:
+    code-annotations: true
+    documentclass: article
+    classoption: a4paper
+    geometry: margin=1in
+    citation-style: apa
+    keep-tex: true
+    toc: true
+    toc-depth: 2
+    number-sections: true
 css: |
-    p {
-        text-align: justify;
-    }
+  p {
+    text-align: justify;
+  }
 ---
 
 ## Introduction
 
 ## A broad overview of transformer models
 
-Like any model, transformers are defined by three main characteristics: the type of the input data, the set of transformations to that data, and the output of the model. The first important thing to realize is that the input data to a transformer will always be a sequence of "tokens". A token is actually a numerical vector with a fixed dimension, which we will denote $N$. Therefore, the total input data to a transformer is a matrix with dimensions $D \times N$, where $D$ is the number of tokens. This means that textual data has to be transformed into a matrix of tokens in order to be fed into the transformer. This is called *subword tokenization.* Although we won't delve into the specifics, the main thing to understand is that common word segments such as "ing", "ood" or "un" (as in believ*ing*, believ*ed*, *un*believable) , as well as common words ( "as", "the", "a"), are mapped to a set of vectors called the embedding matrix. This matrix can either be fixed, or learned in order to optimize the model. Therefore, when receiving a sentence, the model will split it into $D$ parts which will all have a corresponding vector in the embedding matrix. Once this is done, a set of transformations will be applied to the $D \times N$ matrix, and the output, in the form of a single $N$ dimensional vector, will be generated. This final vector is what we call an *embedding*.
+Like any model, transformers are defined by three main characteristics: the type of the input data, the set of transformations to that data, and the output of the model. The first important thing to realize is that the input data to a transformer will always be a sequence of "tokens". A token is actually a numerical vector with a fixed dimension, which we will denote $D$. Therefore, the total input data to a transformer is a matrix with dimensions $D \times N$, where $N$ is the number of tokens. This means that textual data has to be transformed into a matrix of tokens in order to be fed into the transformer. This is called *subword tokenization.* Although we won't delve into the specifics, the main thing to understand is that common word segments such as "ing", "ood" or "un" (as in believ*ing*, believ*ed*, *un*believable) , as well as common words ( "as", "the", "a"), are mapped to a set of vectors called the embedding matrix. This matrix can either be fixed, or learned in order to optimize the model. Therefore, when receiving a sentence, the model will split it into $N$ parts which will all have a corresponding vector in the embedding matrix. Once this is done, a set of transformations will be applied to the $D \times N$ matrix, and the output, in the form of a single $D$-dimensional vector, will be generated. This final vector is what we call an *embedding*.
 
-In order to understand meaning and context in sentences, Large Language Models (LLMs) transform words into vectors. The entire architecture of the LLM aims to modify the numbers inside the vectors, so that the entire context of the sentence becomes somehow integrated in one final vector. This final vector is what we call a sentence embedding. In this first part, we will describe the key mathematical operations that allow meaning to be encoded into sentence embeddings. We will then give an intuitive explanation behind the design choices of these mathematical operations, and show how embeddings can be intuitively understood. Finally, we will present the main mathematical methods that are commonly used to analyze embeddings.
+In this part, we will give the reader a broad understanding of the transformer architecture. First of all, we will give some formal definitions for the mathematical transformations to the data, in order to summarize the general mechanism of a transformer model. Then, we will present an intuitive explanation to sentence embeddings. Finally, we will go over the main mathematical methods used to analyze embeddings.
 
 ### [The transformer block: formal mathematical description]{.underline}
+
+The transformer block is the name given to the set of operations which is iteratively applied to the input sequence in order to produce the output of the model. It is comprised of two main stages :
+
+1.  **Multi-Head Self-Attention**
+
+2.  **Multi-Layer Perceptron**
+
+They are connected together with *residual connections* and *token normalization*.
+
+For the sake of simplicity, we will only go into details about the mechanisms of stage one, as it is the true innovation of transformer models and the main way to understand how embeddings encore meaning.
+
+#### *Multi-Head Self-Attention*
+
+First of all, let's dig into what "attention" is, in the simplest possible terms. We can visualize the $D \times N$ matrix as follows:
+
+```{python}
+#| echo: false
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+
+fig, ax = plt.subplots()
+shape = Rectangle((5,5),
+                 width=3,
+                 height=5,
+                 fill = False)
+highlight = Rectangle((7,5), width= 0.1, height = 5, fill = True, color = 'red', ec = 'black', label = "Token n")
+feature = Rectangle((7,7), width= 0.1, height = 0.2, fill = True, color = 'green', ec = 'black', label = "Feature d")
+ax.add_patch(shape)
+ax.add_patch(highlight)
+ax.add_patch(feature)
+ax.autoscale_view()
+ax.relim()
+plt.axis('off')
+plt.arrow(x=4.8, y=5, dx=0, dy=5, length_includes_head = True,head_width = 0.03, color='black')
+plt.arrow(x=5, y=10.4, dx=3, dy=0, color='black',width = 0.002, head_width = 0.06, length_includes_head = True, head_length = 0.03)
+ax.annotate("", xy=(0.5, 0.5), xytext=(0, 0),
+            arrowprops=dict(arrowstyle="->"))
+plt.text(x=4.6, y = 7, s = 'D')
+plt.text(x=7, y = 10.6, s = 'N')
+plt.legend(loc=(1, 0.5))
+plt.show()
+```
+
+Where each token has $D$ features.
+
+Let $x_n$ denote the input vector at the $n^{\text{th}}$ location, and $y_n$ denote the output vector at the $n^{\text{th}}$ location. The so-called "attention" operation performs a weighted average such that:
+
+$$
+y_n = \sum_{n' = 1}^{N} x_{n'} \times A_{n',n}
+$$
+
+Where $A_{n',n}$ is the attention matrix or size $N \times N$. This means that each feature for each token will be refined by the value of this same feature among all other tokens in the input matrix. The attention matrix gives the weights for each vector. For example, in the sentence "The cat eats the blue flower", the weights would be spread out so that the model can understand that the word "blue" relates to the word "flower", and so that the verb "eats" relates to the subject "cat". If we can imagine that feature $d$ represents the "color" dimension for a noun, the attention matrix would be constructed so that the relationship between the words "blue" ($x_{n'}$) and "cat" ($x_n$) would be very low. Therefore, a low value for $A_{n',n}$ would allow the output vector $y_n$ to reflect that the sentence does not give any information about the color of the cat. The color dimension of the word "cat" is not affected by the value of the adjective "blue". This means that the model does not falsely encode that the cat is blue instead of the flower.
 
 ### [An intuitive understanding of embeddings]{.underline}
 
