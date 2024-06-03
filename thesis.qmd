@@ -4,12 +4,14 @@ format:
   pdf:
     code-annotations: true
     documentclass: article
+    colorlinks: true
+    latex-auto-install: true
     classoption: a4paper
     geometry: margin=1in
     citation-style: apa
     keep-tex: true
     toc: true
-    toc-depth: 2
+    toc-depth: 4
     number-sections: true
 css: |
   p {
@@ -77,7 +79,61 @@ $$
 y_n = \sum_{n' = 1}^{N} x_{n'} \times A_{n',n}
 $$
 
-Where $A_{n',n}$ is the attention matrix or size $N \times N$. This means that each feature for each token will be refined by the value of this same feature among all other tokens in the input matrix. The attention matrix gives the weights for each vector. For example, in the sentence "The cat eats the blue flower", the weights would be spread out so that the model can understand that the word "blue" relates to the word "flower", and so that the verb "eats" relates to the subject "cat". If we can imagine that feature $d$ represents the "color" dimension for a noun, the attention matrix would be constructed so that the relationship between the words "blue" ($x_{n'}$) and "cat" ($x_n$) would be very low. Therefore, a low value for $A_{n',n}$ would allow the output vector $y_n$ to reflect that the sentence does not give any information about the color of the cat. The color dimension of the word "cat" is not affected by the value of the adjective "blue". This means that the model does not falsely encode that the cat is blue instead of the flower.
+Where $A_{n',n}$ is the attention matrix or size $N \times N$. This means that each feature for each token will be refined by the value of this same feature among all other tokens in the input matrix. The attention matrix gives the weights for each vector. For example, in the sentence "The cat eats the blue flower", the weights would be spread out so that the model can understand that the word "blue" relates to the word "flower", and so that the verb "eats" relates to the subject "cat". If we can imagine that feature $d$ represents the "color" dimension for a noun, the attention matrix would be constructed so that the relationship between the words "blue" ($x_{n'}$) and "cat" ($x_n$) would be very low. Therefore, a low value for $A_{n',n}$ would allow the output vector $y_n$ to reflect that the sentence does not give any information about the color of the cat.
+
+Now, we are going to present how the attention matrix is actually created. We use the expression "self" attention because the attention matrix is computed from the values in the input matrix. This works because the importance of each token in the contextual meaning of another token depends on the structure of the sentence. For example, we know that adjectives apply to nouns, and in a sentence with multiple nouns, we can say that one particular adjective relates to the nearest noun. We therefore need to imagine that information about the location of the words in the sentence, as well as the grammatical types of the words, are all encoded into the initial token embeddings. Therefore, we can compute the attention matrix by computing the similarity between locations in the sequence of tokens. However, attention needs to capture which words are important to which, but it is not used to refine the meaning (i.e. the content) of the tokens themselves. We therefore need to compute attention without integrating information about the content of the vectors. Moreover, the relationship between tokens should be asymmetric.
+
+The general formula for the attention matrix thus becomes:
+
+$$
+A_{n,n'} = \frac{
+exp(
+\frac{x_n^T U_k^T U_q x_{n'}}{\sqrt{D}}
+)
+}
+{
+\sum_{n''=1}^N 
+exp(
+\frac{x_{n''}^T U_k^T U_q x_{n'}}{\sqrt{D}}
+)
+}
+$$
+
+Where $U_q$ and $U_k$ are $K \times D$ dimensional matrices, where $K < D$. These matrices asymmetrically perform linear transforms on the sequence so that some features are not included in the computation of the similarity between vectors.
+
+In order to understand this equation, we will focus on explaining each part separately.
+
+First of all, all values in the attention matrix should be between 0 and 1, since it is used to compute a weighted average. We call *softmax* the function that takes a vector of real numbers as an input, and normalizes it to a probability distribution. This means that each number in the vector is between 0 and 1, and that they all sum up to exactly 1. This function is formally defined as:
+
+$$
+\begin{align*}
+& \sigma : \mathbb{R}^D \rightarrow (0,1)^D \\
+& \sigma(x)_n = \frac{exp(x_n)}{\sum_{n'' = 1}^N exp(x_{n''})}
+\end{align*}
+$$
+
+We can therefore recognize that the attention matrix is effectively the result of applying a softmax function to a linear transform of the input vectors. This linear transform can be written:
+
+$$
+\begin{align*}
+& f : \mathbb{R}^D \times \mathbb{R}^D \rightarrow \mathbb{R}^D \\
+& f(x_n, x_{n'}) = \frac{x_n^T \cdot U_k^T \cdot U_q \cdot x_{n'}}{\sqrt{D}}
+\end{align*}
+$$
+
+We divide the result of the projection to a lower dimensional space by $\sqrt{D}$ for numerical stability. The matrices $U_k$ and $U_q$ are parameters of the model, and they will be computed during training.
+
+Now that we have defined what "self-attention" means, the final piece of the puzzle to understand the first stage of the transformer block is to show how the limits of this mechanism have been solved. In this architecture, we can see that the similarity between the vectors is computed across all vector features. This means that for each feature, we use the same value to determine how much "attention" we should pay to all other vectors in the sequence. This causes a problem. For example, what if we want the $d^{\text{th}}$ feature of token $x_n$ to be important to the $d^{\text{th}}$ feature of token $x_{n'}$, but we don't want the $d'^{\text{ th}}$ feature of token $x_n$ to be important to the $d'^{\text{ th}}$ feature of token $x_{n'}$ ?
+
+For this reason, the transformer block computes a number of self-attention in parallel, by splitting the original input matrix into $H$ bits, where $H$ is the number of self-attention mechanisms. One self-attention computation is called a *head*. This therefore brings us to the term *multi-head self-attention*.
+
+The formal mathematical definition of multi-head self-attention, in matrix representation is therefore:
+
+$$
+Y = \sum_{h=1}^H V_h \cdot X \cdot A_h
+$$
+
+Where $V_h$ is a $D \times D$ matrix used to project the sliced $X$ (into $H$ bits) back to the original dimensionality $D$. Each attention matrix $A_h$ is also computed on each slice of $X$.
 
 ### [An intuitive understanding of embeddings]{.underline}
 
