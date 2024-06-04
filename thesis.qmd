@@ -17,6 +17,11 @@ css: |
   p {
     text-align: justify;
   }
+jupyter:
+  kernelspec: 
+    name: python3
+    language: python
+    display_name: python3
 ---
 
 ## Introduction
@@ -186,6 +191,55 @@ class MHSA,MLP orange;
 ### [An intuitive understanding of embeddings]{.underline}
 
 Now that we have some mathematical background on how transformers generate and edit embeddings, we will give some quick intuition into what this means in practice, with applied examples.
+
+Let's therefore use a popular example which is often used to show the practical use of embeddings. It consists in calculating the euclidian distance between the embeddings for the words "Man" and "Woman", and then comparing it to the euclidian distance between the masculine and feminine version of the same word. There are a number of variations for this example. Here, we will compare the distance between the names of two famous economists, and the distance between their most well-known books
+
+```{python}
+#| echo: true
+from api_key import API_KEY
+from mistralai.client import MistralClient
+from sklearn.metrics.pairwise import euclidean_distances
+
+client = MistralClient(api_key=API_KEY)
+def get_euclidian_distance(x: str, y: str) -> float:
+  embed_x = client.embeddings(input=x, model="mistral-embed").data[0].embedding
+  embed_y = client.embeddings(input=y, model="mistral-embed").data[0].embedding
+  return euclidean_distances(X=[embed_x], Y=[embed_y])[0][0]
+
+print(get_euclidian_distance('John Maynard Keynes', 'Adam Smith'))
+print(get_euclidian_distance('The General Theory of Employment, Interest and Money', 'The Wealth Of Nations'))
+```
+
+Here, we can clearly see that the distance between the economists and their books is comparable. Although this could be a simple coincidence, it serves as an illustration as to what embeddings are.
+
+We can illustrate this further by reducing the dimension of our embeddings vectors and plotting them. This can help us to visualize the distance between embeddings.
+
+```{python}
+#| echo: false
+import seaborn as sns
+from sklearn.manifold import TSNE
+import numpy as np
+import polars as pl 
+
+def get_labeled_embedding(text_list: list) -> pl.DataFrame:
+  labelled = []
+  for word in text_list:
+      embed = client.embeddings(input=word, model="mistral-embed").data[0].embedding
+      labelled.append(
+        {
+          'text':word,
+          'embeddings': embed
+        }
+      )
+  return pl.DataFrame(labelled)
+
+df = get_labeled_embedding(['John Maynard Keynes', 'Adam Smith', 'The General Theory of Employment, Interest and Money', 'The Wealth Of Nations'])
+
+tsne = TSNE(n_components=2, random_state=0, perplexity=3).fit_transform(np.array(df['embeddings'].to_list()))
+ax = sns.scatterplot(x=tsne[:, 0], y=tsne[:, 1], hue=np.array(df['text'].to_list()))
+sns.move_legend(ax, 'upper left', bbox_to_anchor=(1, 1))
+
+```
 
 ### [Mathematical methods to analyze embeddings]{.underline}
 
