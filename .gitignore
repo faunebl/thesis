@@ -1,2 +1,5 @@
 api_key.py
-*/__pycache__
+/__pycache__
+/thesis_files
+thesis.pdf
+thesis.tex
