@@ -161,25 +161,31 @@ Token Normalization
 
     This is applied to each feature for each token
 
-We can therefore present the general architecture for the transformer block:
+We can therefore present the general architecture for the transformer :
 
 ```{mermaid}
-graph LR
-A(Input) -- embed --> B[[Embedding]]
-C[[Embedding]] -- layer_norm --> D[MHSA]
-D -- res_connect --> E[[Stage 1 Output]]
-J[[Stage 1 Output]] -- layer_norm --> G[MLP]
-G -- res_connect --> K(Final Output)
+%%| fig-height: 3.5
+%%| fig-width: 6.5
+graph TB
+I[(Input)] --> E(Embeddings)
+S2(Stage 2 Output) -- repeat --> E
+E -- token_norm --> MHSA(MHSA)
+MHSA{{MHSA}} -- res_connect --> S1(Stage 1 Output)
+S1 -- token_norm --> MLP{{MLP}}
+MLP -- res_connect --> S2
+S2 --> F(Final Output)
 
-classDef blue fill:#0099ff,stroke:#0066cc,color:#ffffff;
-class A,J,K,I blue;
-classDef green fill:#00ff00,stroke:#006600,color:#ffffff;
-class B,C,E,J green;
-classDef orange fill:#ff9900,stroke:#cc6600,color:#ffffff;
-class D,F,G,H orange;
+classDef blue fill:#663196,stroke:#20152a,color:#ffffff;
+class I,F blue;
+classDef green fill:#a58eb9,stroke:#20152a,color:#ffffff;
+class E,S1,S2 green;
+classDef orange fill:#e88d67,stroke:#20152a,color:#ffffff;
+class MHSA,MLP orange;
 ```
 
 ### [An intuitive understanding of embeddings]{.underline}
+
+Now that we have some mathematical background on how transformers generate and edit embeddings, we will give some quick intuition into what this means in practice, with applied examples.
 
 ### [Mathematical methods to analyze embeddings]{.underline}
 
