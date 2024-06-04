@@ -37,7 +37,7 @@ The transformer block is the name given to the set of operations which is iterat
 
 They are connected together with *residual connections* and *token normalization*.
 
-For the sake of simplicity, we will only go into details about the mechanisms of stage one, as it is the true innovation of transformer models and the main way to understand how embeddings encore meaning.
+For the sake of simplicity, we will only go into details about the mechanisms of stage one, as it is the true innovation of transformer models and the main way to understand how embeddings encode meaning.
 
 #### *Multi-Head Self-Attention*
 
@@ -83,7 +83,7 @@ Where $A_{n',n}$ is the attention matrix or size $N \times N$. This means that e
 
 Now, we are going to present how the attention matrix is actually created. We use the expression "self" attention because the attention matrix is computed from the values in the input matrix. This works because the importance of each token in the contextual meaning of another token depends on the structure of the sentence. For example, we know that adjectives apply to nouns, and in a sentence with multiple nouns, we can say that one particular adjective relates to the nearest noun. We therefore need to imagine that information about the location of the words in the sentence, as well as the grammatical types of the words, are all encoded into the initial token embeddings. Therefore, we can compute the attention matrix by computing the similarity between locations in the sequence of tokens. However, attention needs to capture which words are important to which, but it is not used to refine the meaning (i.e. the content) of the tokens themselves. We therefore need to compute attention without integrating information about the content of the vectors. Moreover, the relationship between tokens should be asymmetric.
 
-The general formula for the attention matrix thus becomes:
+Let us define the general formula for the attention matrix as:
 
 $$
 A_{n,n'} = \frac{
@@ -105,22 +105,20 @@ In order to understand this equation, we will focus on explaining each part sepa
 
 First of all, all values in the attention matrix should be between 0 and 1, since it is used to compute a weighted average. We call *softmax* the function that takes a vector of real numbers as an input, and normalizes it to a probability distribution. This means that each number in the vector is between 0 and 1, and that they all sum up to exactly 1. This function is formally defined as:
 
-$$
+```{=tex}
 \begin{align*}
 & \sigma : \mathbb{R}^D \rightarrow (0,1)^D \\
 & \sigma(x)_n = \frac{exp(x_n)}{\sum_{n'' = 1}^N exp(x_{n''})}
 \end{align*}
-$$
-
+```
 We can therefore recognize that the attention matrix is effectively the result of applying a softmax function to a linear transform of the input vectors. This linear transform can be written:
 
-$$
+```{=tex}
 \begin{align*}
 & f : \mathbb{R}^D \times \mathbb{R}^D \rightarrow \mathbb{R}^D \\
 & f(x_n, x_{n'}) = \frac{x_n^T \cdot U_k^T \cdot U_q \cdot x_{n'}}{\sqrt{D}}
 \end{align*}
-$$
-
+```
 We divide the result of the projection to a lower dimensional space by $\sqrt{D}$ for numerical stability. The matrices $U_k$ and $U_q$ are parameters of the model, and they will be computed during training.
 
 Now that we have defined what "self-attention" means, the final piece of the puzzle to understand the first stage of the transformer block is to show how the limits of this mechanism have been solved. In this architecture, we can see that the similarity between the vectors is computed across all vector features. This means that for each feature, we use the same value to determine how much "attention" we should pay to all other vectors in the sequence. This causes a problem. For example, what if we want the $d^{\text{th}}$ feature of token $x_n$ to be important to the $d^{\text{th}}$ feature of token $x_{n'}$, but we don't want the $d'^{\text{ th}}$ feature of token $x_n$ to be important to the $d'^{\text{ th}}$ feature of token $x_{n'}$ ?
@@ -134,6 +132,52 @@ Y = \sum_{h=1}^H V_h \cdot X \cdot A_h
 $$
 
 Where $V_h$ is a $D \times D$ matrix used to project the sliced $X$ (into $H$ bits) back to the original dimensionality $D$. Each attention matrix $A_h$ is also computed on each slice of $X$.
+
+Of course, this is a simplified presentation of attention, as there are many details that we are not able to dig into here. Let's now move on to the second stage of the transformer block.
+
+#### *Multi-Layer Perceptron*
+
+Although we won't go into the specifics of what a Multi-Layer Perceptron (MLP) is mathematically, we will give a short bit of intuition into why it is used in the transformer block.
+
+The first thing to notice is that the attention mechanism is applied *horizontally* across the different vectors, while the Multi-Layer Perceptron is applied *vertically* across features. The MLP is a feed-forward neural network which is composed of linear layers separated by non-linear activation functions, which allow the model to capture complex non-linear relationships in the data. It can therefore encode the relationship between the features in the original vector. This allows it to learn more abstract representations of the input data, and specify the information that it has learned in the attention stage.
+
+#### *Residual connections and token normalization*
+
+They are the elements that allow the transformer block to connect the two stages (MHSA and MLP) together.
+
+**Residual connections**
+
+:   They are functions which model the residual differences between each time we iteratively apply the transformer block. They are a non-linear function that is close to the identity function. We can write them formally as follows : $x^m - x^{m-1} = res(x^{m-1})$ where $m$ is the iteration of each block.
+
+Token Normalization
+
+:   The function simply normalizes each token by removing its mean and dividing by its standard deviation. Although, they also present additional parameters in order to scale and shift the data. Its formal mathematical definition is :
+
+    $$
+    \bar{x}_{d,n} = \frac{(x_{d,n} - \bar{x}_n) a_d}{\sqrt{var(x_n)}} + b_d
+    $$
+
+    Where $a_d$ is the scale parameter and $b_d$ is the shift parameter.
+
+    This is applied to each feature for each token
+
+We can therefore present the general architecture for the transformer block:
+
+```{mermaid}
+graph LR
+A(Input) -- embed --> B[[Embedding]]
+C[[Embedding]] -- layer_norm --> D[MHSA]
+D -- res_connect --> E[[Stage 1 Output]]
+J[[Stage 1 Output]] -- layer_norm --> G[MLP]
+G -- res_connect --> K(Final Output)
+
+classDef blue fill:#0099ff,stroke:#0066cc,color:#ffffff;
+class A,J,K,I blue;
+classDef green fill:#00ff00,stroke:#006600,color:#ffffff;
+class B,C,E,J green;
+classDef orange fill:#ff9900,stroke:#cc6600,color:#ffffff;
+class D,F,G,H orange;
+```
 
 ### [An intuitive understanding of embeddings]{.underline}
 
