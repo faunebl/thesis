@@ -190,7 +190,7 @@ class MHSA,MLP orange;
 
 ### [An intuitive understanding of embeddings]{.underline}
 
-Now that we have some mathematical background on how transformers generate and edit embeddings, we will give some quick intuition into what this means in practice, with applied examples.
+Now that we have some mathematical background on how transformers generate and edit embeddings, we will give some quick intuition into what this means in practice, with applied examples. We have shown that the model is able to mathematically extract meaningful and useful features from its input data. Therefore, we will now show how that translates to the model's internal representation of those features.
 
 Let's therefore use a popular example which is often used to show the practical use of embeddings. It consists in calculating the euclidian distance between the embeddings for the words "Man" and "Woman", and then comparing it to the euclidian distance between the masculine and feminine version of the same word. There are a number of variations for this example. Here, we will compare the distance between the names of two famous economists, and the distance between their most well-known books
 
@@ -206,16 +206,23 @@ def get_euclidian_distance(x: str, y: str) -> float:
   embed_y = client.embeddings(input=y, model="mistral-embed").data[0].embedding
   return euclidean_distances(X=[embed_x], Y=[embed_y])[0][0]
 
-print(get_euclidian_distance('John Maynard Keynes', 'Adam Smith'))
-print(get_euclidian_distance('The General Theory of Employment, Interest and Money', 'The Wealth Of Nations'))
+print(
+  get_euclidian_distance('John Maynard Keynes', 'Adam Smith')
+)
+print(
+  get_euclidian_distance(
+    'The General Theory of Employment, Interest and Money', 
+    'The Wealth Of Nations'
+  )
+)
 ```
 
 Here, we can clearly see that the distance between the economists and their books is comparable. Although this could be a simple coincidence, it serves as an illustration as to what embeddings are.
 
-We can illustrate this further by reducing the dimension of our embeddings vectors and plotting them. This can help us to visualize the distance between embeddings.
+We can illustrate this further by reducing the dimension of our embeddings vectors and plotting them. This can help us to visualize what the euclidian distance means in terms of the model's understanding of word's meanings. It can also help us to see that this might not be just a simple coincidence.
 
 ```{python}
-#| echo: false
+#| echo: true
 import seaborn as sns
 from sklearn.manifold import TSNE
 import numpy as np
@@ -233,13 +240,41 @@ def get_labeled_embedding(text_list: list) -> pl.DataFrame:
       )
   return pl.DataFrame(labelled)
 
-df = get_labeled_embedding(['John Maynard Keynes', 'Adam Smith', 'The General Theory of Employment, Interest and Money', 'The Wealth Of Nations'])
+df = get_labeled_embedding(
+  [
+    'John Maynard Keynes', 
+    'Adam Smith', 
+    'The General Theory of Employment, Interest and Money', 
+    'The Wealth Of Nations'
+  ]
+)
 
-tsne = TSNE(n_components=2, random_state=0, perplexity=3).fit_transform(np.array(df['embeddings'].to_list()))
+tsne = TSNE(n_components=2, random_state=0, perplexity=3)
+tsne = tsne.fit_transform(np.array(df['embeddings'].to_list()))
 ax = sns.scatterplot(x=tsne[:, 0], y=tsne[:, 1], hue=np.array(df['text'].to_list()))
 sns.move_legend(ax, 'upper left', bbox_to_anchor=(1, 1))
 
 ```
+
+It is important to note that before being able to visualize embeddings in such a way, we have to reduce the dimension of each vector. Here, we have done this using T-SNE as a dimension reduction technique. This can also be done with a standard PCA. We will present the different mathematical methods that allow us to simplify out analysis of embeddings, such as T-SNE in section $1.3$.
+
+Here, we can clearly see that the four points form an almost perfect square, meaning that the model seems to encode the difference between the two economists' theories. However, it also seems that there could be a linear transform that allows us to go from an economist to its most famous work.
+
+This visualization also helps us to see why cosine similarity is important in measuring embeddings' meaning. Even though singular embeddings here are represented as points and not as vectors, we can use the graph to show the intuition behind the importance of cosine similarity. Indeed, it's not just that the euclidian distance between economists and the distance between their books is similar, it's also that the vectors formed by linking economists and their books *point in the same direction*.
+
+This can easily be checked :
+
+```{python}
+from sklearn.metrics.pairwise import cosine_similarity
+display(df.drop('embeddings').with_columns(pl.Series(name = 'tsne', values = tsne)))
+print(cosine_similarity(X= tsne[1:2,:] - tsne[3:4,:], Y= tsne[0:1,:] - tsne[2:3,:] ))
+print(cosine_similarity(X= tsne[0:1,:] - tsne[1:2,:], Y= tsne[2:3,:] - tsne[3:4,:] ))
+
+```
+
+We can therefore see that the vectors linking economists to their books have a cosine similarity of 1, and the vectors between economists and between their books have a cosine similarity of nearly 1.
+
+Keep in mind that this example is purely anecdotal to give the reader some basic intuition into how one should understand token embeddings. Of course, a rigorous analysis must imply a wide range of data points. The dimension reduction technique and the similarity metrics between vectors introduce major biases in the results. However, it is still useful to get a broad understanding of how embeddings are supposed to represent meaning.
 
 ### [Mathematical methods to analyze embeddings]{.underline}
 
