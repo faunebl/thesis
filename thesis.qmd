@@ -262,6 +262,9 @@ Here, we can clearly see that the four points form an almost perfect square, mea
 
 This visualization also helps us to see why cosine similarity is important in measuring embeddings' meaning. Even though singular embeddings here are represented as points and not as vectors, we can use the graph to show the intuition behind the importance of cosine similarity. Indeed, it's not just that the euclidian distance between economists and the distance between their books is similar, it's also that the vectors formed by linking economists and their books *point in the same direction*.
 
+```{=tex}
+\newpage
+```
 This can easily be checked :
 
 ```{python}
