@@ -24,6 +24,8 @@ jupyter:
     display_name: python3
 ---
 
+\newpage
+
 ## Introduction
 
 ## A broad overview of transformer models
@@ -262,9 +264,6 @@ Here, we can clearly see that the four points form an almost perfect square, mea
 
 This visualization also helps us to see why cosine similarity is important in measuring embeddings' meaning. Even though singular embeddings here are represented as points and not as vectors, we can use the graph to show the intuition behind the importance of cosine similarity. Indeed, it's not just that the euclidian distance between economists and the distance between their books is similar, it's also that the vectors formed by linking economists and their books *point in the same direction*.
 
-```{=tex}
-\newpage
-```
 This can easily be checked :
 
 ```{python}
@@ -277,9 +276,60 @@ print(cosine_similarity(X= tsne[0:1,:] - tsne[1:2,:], Y= tsne[2:3,:] - tsne[3:4,
 
 We can therefore see that the vectors linking economists to their books have a cosine similarity of 1, and the vectors between economists and between their books have a cosine similarity of nearly 1.
 
+The last way to measure similarity between vectors is to use their dot product. This is sort of a hybrid between the cosine similarity (which doesn't take into account the vectors' size), and the euclidian distance between points (which measures the size of the vector between two points). We can compute the dot product of the vectors as follows :
+
+```{python}
+print(np.dot(a=tsne[1:2,:] - tsne[3:4,:], b= np.transpose(tsne[0:1,:] - tsne[2:3,:])))
+print(np.dot(a= tsne[0:1,:] - tsne[1:2,:], b= np.transpose(tsne[2:3,:] - tsne[3:4,:])))
+```
+
+This is also the similarity measures that we have seen used during the self-attention process of the transformer. In order to analyze the meaning of the dot product, we can look at the mathematical formula :
+
+$$
+u \cdot v = \lvert u \rvert \times \lvert v \rvert \times cos(\theta)
+$$
+
+Where $\lvert u \rvert$ is the euclidean norm of $u$ and $cos(\theta)$ is the cosine similarity between $u$ and $v$. We can therefore see that the cosine similarity penalizes the length of the two vectors. Therefore, the higher the value, the more similar the vectors are.
+
 Keep in mind that this example is purely anecdotal to give the reader some basic intuition into how one should understand token embeddings. Of course, a rigorous analysis must imply a wide range of data points. The dimension reduction technique and the similarity metrics between vectors introduce major biases in the results. However, it is still useful to get a broad understanding of how embeddings are supposed to represent meaning.
 
 ### [Mathematical methods to analyze embeddings]{.underline}
+
+We are now going to present the main methods that are used in the literature to measure how the model encodes the meaning of words. Since we have seen that word sense is represented by location in space, we should therefore be able to find where each sentence is in space, and therefore test if that corresponds to the meaning of the sentence. This is done in multiple papers, however, they mostly focus on syntax instead of meaning. Our analysis throughout this thesis will be even more different, as we will focus on *sentiment* in sentences, and later on the link between embeddings and markets. Here we will quickly present two techniques which are necessary in order to be able to perform any analysis on embeddings. We will use both of them throughout this thesis.
+
+#### *Dimension reduction*
+
+Dimension reduction algorithms allow us to simply reduce the number of dimension that a certain vector has, in order to have a more readable outcome. Indeed, sentence embeddings vectors generally have between 700 and 1200 rows. It can therefore be very hard to understand what that means for us humans, since we can only really think in three dimensions. We can think of dimension reduction just as drawing a 3D cube on paper. It's a method to transfer information from other dimensions in a lower dimensional space. However, algorithms are not all equal in their ability to preserve the global structure of the initial data. The most famous dimension reduction methods are PCA (Principal Component Analysis) and t-SNE (T-distributed Stochastic Neighbor Embedding). Generally, there are two types of dimension reduction techniques. There are those that want to preserve the distance among all of the different pairs of samples (PCA), and those that try to keep the local distances identical over the global distances (t-SNE). We will present both of those algorithms here, although we will only give the intuition behind t-SNE as the mathematics behind it are a little more complex. It is however important to understand both of those methods in order to understand our analysis.
+
+t-SNE
+
+:   t-SNE is based on an earlier technique called Stochastic Neighbor Embedding, but with a few tweaks to make it more effective. It is non-linear. It works in two main stages. First, it calculates the probability that each data point is similar to every other data points. In the second stage, t-SNE creates a map and calculates the probability that each pair of data points is close together on the map. Then, it adjusts the locations of the data points on the map to minimize the difference between the two sets of probabilities. It uses euclidean distance as a similarity measure between vectors. However, in this thesis, we will use a variant of t-SNE that uses riemannian geometry (and therefore the riemannian distance). This is called UMAP.
+
+PCA
+
+:   PCA creates a new set of variables out of the original dimensions in the vector. Each new variable is called a principal component. It works by creating a linear combination of the original variables, and they are chosen in such a way that the first principal component explains as much of the variation in the data as possible, the second principal component explains as much of the remaining variation as possible, and so on. Unlike t-SNE, it is linear. In order to reduce the dimension, we can choose the number of principal components to keep.
+
+    Mathematically, the new variables are a linear combination of the original variables. Let $X$ be an $n \times p$ matrix, meaning there are $n$ samples or observations and $p$ variables or features. The first principal component, denoted as $z_1$, is the linear combination of the original variables that has the largest variance. Mathematically, $z_1$ can be defined as:
+
+    $$
+    z_1 = a_{11}\times x_1 + a_{12} \times x_2 + ... + a_{1p} \times x_p   
+    $$
+
+    where $a_{11}, ... a_{1p}$ are the coefficients of the linear combination. They are chosen in such a way that the theoretical variance of the estimator $z_1$ is maximized. Then, $z_2$ is estimated in the same way, except that the coefficients $a_{21}, a_{22}, ..., a_{2p}$ are chosen so that the theoretical variance is maximized *under the constraint* that $z_2$ is orthogonal to $z_1$.
+
+#### *CLustering*
+
+Clustering is a technique for grouping similar objects or data points together. It's a way to find patterns and structure in data. This can allow us to find out if sentences with similar meanings or sentiment are grouped together in the space. Here, we will give a short summary of the definition of k-means clustering, which is the most popular clustering methor. The intuition behind k-means is that it's a way to find patterns and structure in data. By grouping similar data points together, we can get a sense of what the data looks like, and what the underlying relationships between the variables are
+
+The algorithm works by first assigning each data point to a cluster at random. Then, it calculates the centroid, or the center of mass, of each cluster, and assigns each data point to the cluster whose centroid is closest. This process is repeated until the clusters no longer change, or until a certain number of iterations have been reached.
+
+The math behind k-means is all about minimizing the sum of the squared distances between each data point and the centroid of its cluster. The algorithm iteratively updates the centroids and the assignments of the data points to the clusters, in such a way that this objective function is minimized. We will give a short mathematical definition of the most naïve version of k-means, in order to give the reader some basic understanding of the algorithm. It proceeds in two steps that are repeated until convergence.
+
+1.  *Assignment step :* As per its name, it consists in assigning a cluster to each observation. It decides which cluster to assign to an observation by finding the cluster with the least squared euclidian distance to the observation. This means that we are separating the space into the number of clusters, according to the observation means. Let $\bar{x}_i$ denote the $i^{\text{th}}$ mean amongst the set of initial random k means. We can write the new clusters as : $$S_i = \{ x_p : \lVert x_p - \bar{x}_i \rVert  \le \lVert x_p - \bar{x}_j \rVert, \forall j,i  \text{   s.t.} 1 \le j,i \le k    \}$$ we can see that they are defined by the set of euclidian distances that are smaller than for the cluster next to it.
+
+2.  *Update step* : We then re-calculate the means for each cluster which gives us a new set of $\bar{x}_i, i \in \{1,..., k\}$.
+
+Then, we can say that the algorithm has converged when the assignment to a cluster for each observation stays the same from on step to the other, for all observations.
 
 ## Analyzing embeddings
 
