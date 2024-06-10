@@ -345,7 +345,21 @@ Both of these analysis are flawed in their own way. The first one forces us to c
 
 #### *Presenting the database*
 
-For this part of the project, we needed a large, clean and labeled database with an approximately equal amount of sentences from each sentiment. Therefore, we decided to use the Stanford Sentiment Treebank, which is comprised of approximately 60 000 movie reviews. Each review was attributed a sentiment by three human judges.
+For this part of the project, we needed a large, clean and labeled database with an approximately equal amount of sentences from each sentiment. Therefore, we decided to use the Stanford Sentiment Treebank, which is comprised of approximately 67 000 movie reviews. Each review was attributed a sentiment by three human judges.
+
+![Distribution of sentences](C:\Users\faune\Desktop\thesis\stanford_hist.png){fig-align="center" width="50%"}
+
+We can also take a look at the length of the sentences, since that will be important later in our analysis.
+
+![Sentence length by label](C:\Users\faune\Desktop\thesis\nb_words_hist.png){fig-align="center" width="50%"}
+
+We can see that the distribution of sentence lengths is approximately the same for both negatively and positively labeled sentences.
+
+#### *Similarity between vectors* 
+
+What we call here the analysis of similarity between vectors means that we are trying to find out if embeddings of similar sentences that have different sentiments either *point in the same direction* (cosine similarity), or *are of comparable length* (euclidean distance and/or dot product). The challenge here, and also the flaw which renders our results difficult to analyze, is that we need to find a way to match sentences with negative sentiment to corresponding sentences with positive sentiment. The way that we do this here is by finding sentences that have the highest number of matching words. This means that we are trying to maximize the length of the union of the sentences. However, this naïve approach would give an unfair advantage to longer sentences during the matching process. Therefore, we separate sentences based on the number of words in them. We then filter the sentences based on the ratio of matching words to the total number of words.
+
+This seems simple enough, but it is harder to do in practice, given that we have around 30 000 sentences to match with one another.
 
 ### [Link between sentence embeddings and markets]{.underline}
 
