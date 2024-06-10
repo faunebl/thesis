@@ -35,7 +35,7 @@ Dataset: from FinBERT (AllAgree)
 ## Are daily embeddings linked to markets ?
 Problem: find a way to have only one embedding per day... 
 
-Regroup US news: fast text language detection + database of countries to search with regex (if a country is mentioned)
+Regroup US news: fast text language detection + database of countries to search with regex (if a country is mentioned) -> instead try the MSCI WORLD
 
 Here: regroup sentence embeddings per day, and test the correlation with various market data (VIX, index vol, index returns etc) -> pb: financial headlines might not be linked to a specific market/country/region. 
 We can also perform outlier detection and see if it might be correlated with exceptional market/historical events.

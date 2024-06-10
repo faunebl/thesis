@@ -317,7 +317,7 @@ PCA
 
     where $a_{11}, ... a_{1p}$ are the coefficients of the linear combination. They are chosen in such a way that the theoretical variance of the estimator $z_1$ is maximized. Then, $z_2$ is estimated in the same way, except that the coefficients $a_{21}, a_{22}, ..., a_{2p}$ are chosen so that the theoretical variance is maximized *under the constraint* that $z_2$ is orthogonal to $z_1$.
 
-#### *CLustering*
+#### *Clustering*
 
 Clustering is a technique for grouping similar objects or data points together. It's a way to find patterns and structure in data. This can allow us to find out if sentences with similar meanings or sentiment are grouped together in the space. Here, we will give a short summary of the definition of k-means clustering, which is the most popular clustering methor. The intuition behind k-means is that it's a way to find patterns and structure in data. By grouping similar data points together, we can get a sense of what the data looks like, and what the underlying relationships between the variables are
 
@@ -333,9 +333,21 @@ Then, we can say that the algorithm has converged when the assignment to a clust
 
 ## Analyzing embeddings
 
-### [K-means clustering on labeled data]{.underline}
+### [Geometry of sentiment]{.underline}
 
-### [Cosine similarity and euclidean distances on dated data]{.underline}
+The goal of this part is to see if large language models understand or encode financial sentiment. For this, we will proceed in two parts, that check two different ways in which the models could encode financial sentiment.
+
+1.  K-means clustering : the model could put different sentiments in different places in space, in which case we would see clusters that correspond to the labels of sentiment.
+
+2.  Similarity between vectors : the model could encode a linear transform that corresponds to the space between a positive or a negative sentence. In this scenario, we should be able to evaluate the similarities and the differences between sentence embeddings with positive and negative sentiments. This can be done using the similarity metrics we mentioned earlier.
+
+Both of these analysis are flawed in their own way. The first one forces us to compare the results an unsupervised clustering algorithm with actual labels, which might not mean that labels don't correspond to clusters of their own. The second one can only work on the condition that we match sentences together. However, it would be much more significant if we could analyze the embeddings of two sentences which are extremely similar except for their opposite sentiments. In a mild correction to this, we will sort both datasets by sentence lengths, and then select sentences that have different sentiment yet that have words in common between them.
+
+#### *Presenting the database*
+
+For this part of the project, we needed a large, clean and labeled database with an approximately equal amount of sentences from each sentiment. Therefore, we decided to use the Stanford Sentiment Treebank, which is comprised of approximately 60 000 movie reviews. Each review was attributed a sentiment by three human judges.
+
+### [Link between sentence embeddings and markets]{.underline}
 
 ### [Comparing results]{.underline}
 
