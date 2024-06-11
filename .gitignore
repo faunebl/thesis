@@ -1,2 +1,6 @@
-*/api_key.py
-*/__pycache__
+api_key.py
+/__pycache__
+/thesis_files
+thesis.pdf
+thesis.tex
+stanford_sentiment.parquet
