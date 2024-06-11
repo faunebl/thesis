@@ -22,7 +22,14 @@ jupyter:
     name: python3
     language: python
     display_name: python3
+jupyter:
+  kernelspec: 
+    name: python3
+    language: python
+    display_name: python3
 ---
+
+\newpage
 
 \newpage
 
@@ -44,6 +51,7 @@ The transformer block is the name given to the set of operations which is iterat
 
 They are connected together with *residual connections* and *token normalization*.
 
+For the sake of simplicity, we will only go into details about the mechanisms of stage one, as it is the true innovation of transformer models and the main way to understand how embeddings encode meaning.
 For the sake of simplicity, we will only go into details about the mechanisms of stage one, as it is the true innovation of transformer models and the main way to understand how embeddings encode meaning.
 
 #### *Multi-Head Self-Attention*
@@ -113,18 +121,22 @@ In order to understand this equation, we will focus on explaining each part sepa
 First of all, all values in the attention matrix should be between 0 and 1, since it is used to compute a weighted average. We call *softmax* the function that takes a vector of real numbers as an input, and normalizes it to a probability distribution. This means that each number in the vector is between 0 and 1, and that they all sum up to exactly 1. This function is formally defined as:
 
 ```{=tex}
+```{=tex}
 \begin{align*}
 & \sigma : \mathbb{R}^D \rightarrow (0,1)^D \\
 & \sigma(x)_n = \frac{exp(x_n)}{\sum_{n'' = 1}^N exp(x_{n''})}
 \end{align*}
 ```
+```
 We can therefore recognize that the attention matrix is effectively the result of applying a softmax function to a linear transform of the input vectors. This linear transform can be written:
 
+```{=tex}
 ```{=tex}
 \begin{align*}
 & f : \mathbb{R}^D \times \mathbb{R}^D \rightarrow \mathbb{R}^D \\
 & f(x_n, x_{n'}) = \frac{x_n^T \cdot U_k^T \cdot U_q \cdot x_{n'}}{\sqrt{D}}
 \end{align*}
+```
 ```
 We divide the result of the projection to a lower dimensional space by $\sqrt{D}$ for numerical stability. The matrices $U_k$ and $U_q$ are parameters of the model, and they will be computed during training.
 
@@ -139,6 +151,56 @@ Y = \sum_{h=1}^H V_h \cdot X \cdot A_h
 $$
 
 Where $V_h$ is a $D \times D$ matrix used to project the sliced $X$ (into $H$ bits) back to the original dimensionality $D$. Each attention matrix $A_h$ is also computed on each slice of $X$.
+
+Of course, this is a simplified presentation of attention, as there are many details that we are not able to dig into here. Let's now move on to the second stage of the transformer block.
+
+#### *Multi-Layer Perceptron*
+
+Although we won't go into the specifics of what a Multi-Layer Perceptron (MLP) is mathematically, we will give a short bit of intuition into why it is used in the transformer block.
+
+The first thing to notice is that the attention mechanism is applied *horizontally* across the different vectors, while the Multi-Layer Perceptron is applied *vertically* across features. The MLP is a feed-forward neural network which is composed of linear layers separated by non-linear activation functions, which allow the model to capture complex non-linear relationships in the data. It can therefore encode the relationship between the features in the original vector. This allows it to learn more abstract representations of the input data, and specify the information that it has learned in the attention stage.
+
+#### *Residual connections and token normalization*
+
+They are the elements that allow the transformer block to connect the two stages (MHSA and MLP) together.
+
+**Residual connections**
+
+:   They are functions which model the residual differences between each time we iteratively apply the transformer block. They are a non-linear function that is close to the identity function. We can write them formally as follows : $x^m - x^{m-1} = res(x^{m-1})$ where $m$ is the iteration of each block.
+
+Token Normalization
+
+:   The function simply normalizes each token by removing its mean and dividing by its standard deviation. Although, they also present additional parameters in order to scale and shift the data. Its formal mathematical definition is :
+
+    $$
+    \bar{x}_{d,n} = \frac{(x_{d,n} - \bar{x}_n) a_d}{\sqrt{var(x_n)}} + b_d
+    $$
+
+    Where $a_d$ is the scale parameter and $b_d$ is the shift parameter.
+
+    This is applied to each feature for each token
+
+We can therefore present the general architecture for the transformer :
+
+```{mermaid}
+%%| fig-height: 3.5
+%%| fig-width: 6.5
+graph TB
+I[(Input)] --> E(Embeddings)
+S2(Stage 2 Output) -- repeat --> E
+E -- token_norm --> MHSA(MHSA)
+MHSA{{MHSA}} -- res_connect --> S1(Stage 1 Output)
+S1 -- token_norm --> MLP{{MLP}}
+MLP -- res_connect --> S2
+S2 --> F(Final Output)
+
+classDef blue fill:#663196,stroke:#20152a,color:#ffffff;
+class I,F blue;
+classDef green fill:#a58eb9,stroke:#20152a,color:#ffffff;
+class E,S1,S2 green;
+classDef orange fill:#e88d67,stroke:#20152a,color:#ffffff;
+class MHSA,MLP orange;
+```
 
 Of course, this is a simplified presentation of attention, as there are many details that we are not able to dig into here. Let's now move on to the second stage of the transformer block.
 
@@ -293,7 +355,144 @@ Where $\lvert u \rvert$ is the euclidean norm of $u$ and $cos(\theta)$ is the co
 
 Keep in mind that this example is purely anecdotal to give the reader some basic intuition into how one should understand token embeddings. Of course, a rigorous analysis must imply a wide range of data points. The dimension reduction technique and the similarity metrics between vectors introduce major biases in the results. However, it is still useful to get a broad understanding of how embeddings are supposed to represent meaning.
 
+Now that we have some mathematical background on how transformers generate and edit embeddings, we will give some quick intuition into what this means in practice, with applied examples. We have shown that the model is able to mathematically extract meaningful and useful features from its input data. Therefore, we will now show how that translates to the model's internal representation of those features.
+
+Let's therefore use a popular example which is often used to show the practical use of embeddings. It consists in calculating the euclidian distance between the embeddings for the words "Man" and "Woman", and then comparing it to the euclidian distance between the masculine and feminine version of the same word. There are a number of variations for this example. Here, we will compare the distance between the names of two famous economists, and the distance between their most well-known books
+
+```{python}
+#| echo: true
+from api_key import API_KEY
+from mistralai.client import MistralClient
+from sklearn.metrics.pairwise import euclidean_distances
+
+client = MistralClient(api_key=API_KEY)
+def get_euclidian_distance(x: str, y: str) -> float:
+  embed_x = client.embeddings(input=x, model="mistral-embed").data[0].embedding
+  embed_y = client.embeddings(input=y, model="mistral-embed").data[0].embedding
+  return euclidean_distances(X=[embed_x], Y=[embed_y])[0][0]
+
+print(
+  get_euclidian_distance('John Maynard Keynes', 'Adam Smith')
+)
+print(
+  get_euclidian_distance(
+    'The General Theory of Employment, Interest and Money', 
+    'The Wealth Of Nations'
+  )
+)
+```
+
+Here, we can clearly see that the distance between the economists and their books is comparable. Although this could be a simple coincidence, it serves as an illustration as to what embeddings are.
+
+We can illustrate this further by reducing the dimension of our embeddings vectors and plotting them. This can help us to visualize what the euclidian distance means in terms of the model's understanding of word's meanings. It can also help us to see that this might not be just a simple coincidence.
+
+```{python}
+#| echo: true
+import seaborn as sns
+from sklearn.manifold import TSNE
+import numpy as np
+import polars as pl 
+
+def get_labeled_embedding(text_list: list) -> pl.DataFrame:
+  labelled = []
+  for word in text_list:
+      embed = client.embeddings(input=word, model="mistral-embed").data[0].embedding
+      labelled.append(
+        {
+          'text':word,
+          'embeddings': embed
+        }
+      )
+  return pl.DataFrame(labelled)
+
+df = get_labeled_embedding(
+  [
+    'John Maynard Keynes', 
+    'Adam Smith', 
+    'The General Theory of Employment, Interest and Money', 
+    'The Wealth Of Nations'
+  ]
+)
+
+tsne = TSNE(n_components=2, random_state=0, perplexity=3)
+tsne = tsne.fit_transform(np.array(df['embeddings'].to_list()))
+ax = sns.scatterplot(x=tsne[:, 0], y=tsne[:, 1], hue=np.array(df['text'].to_list()))
+sns.move_legend(ax, 'upper left', bbox_to_anchor=(1, 1))
+
+```
+
+It is important to note that before being able to visualize embeddings in such a way, we have to reduce the dimension of each vector. Here, we have done this using T-SNE as a dimension reduction technique. This can also be done with a standard PCA. We will present the different mathematical methods that allow us to simplify out analysis of embeddings, such as T-SNE in section $1.3$.
+
+Here, we can clearly see that the four points form an almost perfect square, meaning that the model seems to encode the difference between the two economists' theories. However, it also seems that there could be a linear transform that allows us to go from an economist to its most famous work.
+
+This visualization also helps us to see why cosine similarity is important in measuring embeddings' meaning. Even though singular embeddings here are represented as points and not as vectors, we can use the graph to show the intuition behind the importance of cosine similarity. Indeed, it's not just that the euclidian distance between economists and the distance between their books is similar, it's also that the vectors formed by linking economists and their books *point in the same direction*.
+
+This can easily be checked :
+
+```{python}
+from sklearn.metrics.pairwise import cosine_similarity
+display(df.drop('embeddings').with_columns(pl.Series(name = 'tsne', values = tsne)))
+print(cosine_similarity(X= tsne[1:2,:] - tsne[3:4,:], Y= tsne[0:1,:] - tsne[2:3,:] ))
+print(cosine_similarity(X= tsne[0:1,:] - tsne[1:2,:], Y= tsne[2:3,:] - tsne[3:4,:] ))
+
+```
+
+We can therefore see that the vectors linking economists to their books have a cosine similarity of 1, and the vectors between economists and between their books have a cosine similarity of nearly 1.
+
+The last way to measure similarity between vectors is to use their dot product. This is sort of a hybrid between the cosine similarity (which doesn't take into account the vectors' size), and the euclidian distance between points (which measures the size of the vector between two points). We can compute the dot product of the vectors as follows :
+
+```{python}
+print(np.dot(a=tsne[1:2,:] - tsne[3:4,:], b= np.transpose(tsne[0:1,:] - tsne[2:3,:])))
+print(np.dot(a= tsne[0:1,:] - tsne[1:2,:], b= np.transpose(tsne[2:3,:] - tsne[3:4,:])))
+```
+
+This is also the similarity measures that we have seen used during the self-attention process of the transformer. In order to analyze the meaning of the dot product, we can look at the mathematical formula :
+
+$$
+u \cdot v = \lvert u \rvert \times \lvert v \rvert \times cos(\theta)
+$$
+
+Where $\lvert u \rvert$ is the euclidean norm of $u$ and $cos(\theta)$ is the cosine similarity between $u$ and $v$. We can therefore see that the cosine similarity penalizes the length of the two vectors. Therefore, the higher the value, the more similar the vectors are.
+
+Keep in mind that this example is purely anecdotal to give the reader some basic intuition into how one should understand token embeddings. Of course, a rigorous analysis must imply a wide range of data points. The dimension reduction technique and the similarity metrics between vectors introduce major biases in the results. However, it is still useful to get a broad understanding of how embeddings are supposed to represent meaning.
+
 ### [Mathematical methods to analyze embeddings]{.underline}
+
+We are now going to present the main methods that are used in the literature to measure how the model encodes the meaning of words. Since we have seen that word sense is represented by location in space, we should therefore be able to find where each sentence is in space, and therefore test if that corresponds to the meaning of the sentence. This is done in multiple papers, however, they mostly focus on syntax instead of meaning. Our analysis throughout this thesis will be even more different, as we will focus on *sentiment* in sentences, and later on the link between embeddings and markets. Here we will quickly present two techniques which are necessary in order to be able to perform any analysis on embeddings. We will use both of them throughout this thesis.
+
+#### *Dimension reduction*
+
+Dimension reduction algorithms allow us to simply reduce the number of dimension that a certain vector has, in order to have a more readable outcome. Indeed, sentence embeddings vectors generally have between 700 and 1200 rows. It can therefore be very hard to understand what that means for us humans, since we can only really think in three dimensions. We can think of dimension reduction just as drawing a 3D cube on paper. It's a method to transfer information from other dimensions in a lower dimensional space. However, algorithms are not all equal in their ability to preserve the global structure of the initial data. The most famous dimension reduction methods are PCA (Principal Component Analysis) and t-SNE (T-distributed Stochastic Neighbor Embedding). Generally, there are two types of dimension reduction techniques. There are those that want to preserve the distance among all of the different pairs of samples (PCA), and those that try to keep the local distances identical over the global distances (t-SNE). We will present both of those algorithms here, although we will only give the intuition behind t-SNE as the mathematics behind it are a little more complex. It is however important to understand both of those methods in order to understand our analysis.
+
+t-SNE
+
+:   t-SNE is based on an earlier technique called Stochastic Neighbor Embedding, but with a few tweaks to make it more effective. It is non-linear. It works in two main stages. First, it calculates the probability that each data point is similar to every other data points. In the second stage, t-SNE creates a map and calculates the probability that each pair of data points is close together on the map. Then, it adjusts the locations of the data points on the map to minimize the difference between the two sets of probabilities. It uses euclidean distance as a similarity measure between vectors. However, in this thesis, we will use a variant of t-SNE that uses riemannian geometry (and therefore the riemannian distance). This is called UMAP.
+
+PCA
+
+:   PCA creates a new set of variables out of the original dimensions in the vector. Each new variable is called a principal component. It works by creating a linear combination of the original variables, and they are chosen in such a way that the first principal component explains as much of the variation in the data as possible, the second principal component explains as much of the remaining variation as possible, and so on. Unlike t-SNE, it is linear. In order to reduce the dimension, we can choose the number of principal components to keep.
+
+    Mathematically, the new variables are a linear combination of the original variables. Let $X$ be an $n \times p$ matrix, meaning there are $n$ samples or observations and $p$ variables or features. The first principal component, denoted as $z_1$, is the linear combination of the original variables that has the largest variance. Mathematically, $z_1$ can be defined as:
+
+    $$
+    z_1 = a_{11}\times x_1 + a_{12} \times x_2 + ... + a_{1p} \times x_p   
+    $$
+
+    where $a_{11}, ... a_{1p}$ are the coefficients of the linear combination. They are chosen in such a way that the theoretical variance of the estimator $z_1$ is maximized. Then, $z_2$ is estimated in the same way, except that the coefficients $a_{21}, a_{22}, ..., a_{2p}$ are chosen so that the theoretical variance is maximized *under the constraint* that $z_2$ is orthogonal to $z_1$.
+
+#### *Clustering*
+
+Clustering is a technique for grouping similar objects or data points together. It's a way to find patterns and structure in data. This can allow us to find out if sentences with similar meanings or sentiment are grouped together in the space. Here, we will give a short summary of the definition of k-means clustering, which is the most popular clustering methor. The intuition behind k-means is that it's a way to find patterns and structure in data. By grouping similar data points together, we can get a sense of what the data looks like, and what the underlying relationships between the variables are
+
+The algorithm works by first assigning each data point to a cluster at random. Then, it calculates the centroid, or the center of mass, of each cluster, and assigns each data point to the cluster whose centroid is closest. This process is repeated until the clusters no longer change, or until a certain number of iterations have been reached.
+
+The math behind k-means is all about minimizing the sum of the squared distances between each data point and the centroid of its cluster. The algorithm iteratively updates the centroids and the assignments of the data points to the clusters, in such a way that this objective function is minimized. We will give a short mathematical definition of the most naïve version of k-means, in order to give the reader some basic understanding of the algorithm. It proceeds in two steps that are repeated until convergence.
+
+1.  *Assignment step :* As per its name, it consists in assigning a cluster to each observation. It decides which cluster to assign to an observation by finding the cluster with the least squared euclidian distance to the observation. This means that we are separating the space into the number of clusters, according to the observation means. Let $\bar{x}_i$ denote the $i^{\text{th}}$ mean amongst the set of initial random k means. We can write the new clusters as : $$S_i = \{ x_p : \lVert x_p - \bar{x}_i \rVert  \le \lVert x_p - \bar{x}_j \rVert, \forall j,i  \text{   s.t.} 1 \le j,i \le k    \}$$ we can see that they are defined by the set of euclidian distances that are smaller than for the cluster next to it.
+
+2.  *Update step* : We then re-calculate the means for each cluster which gives us a new set of $\bar{x}_i, i \in \{1,..., k\}$.
+
+Then, we can say that the algorithm has converged when the assignment to a cluster for each observation stays the same from on step to the other, for all observations.
 
 We are now going to present the main methods that are used in the literature to measure how the model encodes the meaning of words. Since we have seen that word sense is represented by location in space, we should therefore be able to find where each sentence is in space, and therefore test if that corresponds to the meaning of the sentence. This is done in multiple papers, however, they mostly focus on syntax instead of meaning. Our analysis throughout this thesis will be even more different, as we will focus on *sentiment* in sentences, and later on the link between embeddings and markets. Here we will quickly present two techniques which are necessary in order to be able to perform any analysis on embeddings. We will use both of them throughout this thesis.
 
