@@ -32,14 +32,18 @@ Check euclidian distances (after dimension reduction) between embeddings to see 
 No comparison with regular sentiment. 
 Dataset: from FinBERT (AllAgree)
 
+idea: analysis of the embedding of the most common word in the context of a negative sentence vs a positive sentence
+
 ## Are daily embeddings linked to markets ?
 Problem: find a way to have only one embedding per day... 
 
 Regroup US news: fast text language detection + database of countries to search with regex (if a country is mentioned) -> instead try the MSCI WORLD
 
-Here: regroup sentence embeddings per day, and test the correlation with various market data (VIX, index vol, index returns etc) -> pb: financial headlines might not be linked to a specific market/country/region. 
-We can also perform outlier detection and see if it might be correlated with exceptional market/historical events.
-Also perform analysis with lagged data (1d lag) to see if it would be applicable in real time. Compare the two results. 
+Here: regroup sentence embeddings per day, and test the correlation with various market data (VIX, index vol, index returns etc) -> pb: financial headlines might not be linked to a specific market/country/region. -> MSCI world
+
+We can also perform outlier detection and see if it might be correlated with exceptional market/historical events. -> variance of above a certain threshold in the daily embeddings: might not return much because generally speaking embeddings are very close together. 
+
+Also perform analysis with lagged data (1d lag) to see if it would be applicable in real time. Compare the two results. -> NO not possible 
 Dataset : Lab1
 
 ## Link between the two

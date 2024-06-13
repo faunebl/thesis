@@ -4,3 +4,4 @@ api_key.py
 thesis.pdf
 thesis.tex
 stanford_sentiment.parquet
+daily_headlines.parquet
