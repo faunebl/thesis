@@ -537,9 +537,23 @@ Here, we will simply plot the sentence embeddings and try to find out which poin
 
 ![Sentence embeddings position per year](images/embeddings_year.png){fig-align="center"}
 
-Here, we can see that there is almost an uncanny relationship between the year and the embeddings. Clearly, embeddings are shifting from the right to the left as time goes on. We can also see that they are getting closer together. However, it is possible that this could be the result of the number of news per day. In order to check if there is a trend in the number of news, we plot it.
+Here, we can see that there is almost an uncanny relationship between the year and the embeddings. Please note that there are mentions of the current year in the embeddings, but such mentions are very limited. Sentences also contain mentions of other years, in the form of predictions about the future. Clearly, embeddings are shifting from the right to the left as time goes on. We can also see that they are getting closer together. However, it is possible that this could be the result of the number of news per day. In order to check if there is a trend in the number of news, we plot it.
+
+![Number of news per year](images/number_news_year.png){fig-align="center"}
+
+Here, we can see that the number of news per year is indeed decreasing, but not nearly as much as could be initially deduced from the graph.
+
+We can then plot the sentiment label of the news.
+
+![Embeddings with labels](images/embeddings_label.png){fig-align="center"}
+
+Here, we can see that there is no particularly visible relationship between the label and the position of the embeddings in the space. If we confront these results with what we observed in the first part of this thesis, this is a particularly interesting result. Indeed, it seems that the model does encode differences between the years, but that this does not translate to differences in raw sentiment. Therefore, this must mean that either our sentiment labels are flawed, or, the model is "more intelligent" than the raw sentiment labels. It might understand some ineffable relationship in the headlines that allows it to recognize economic patterns.
+
+We will now test this hypothesis by performing linear regressions on the MSCI World Index.
 
 #### *Linear regressions against the MSCI World Index*
+
+In order to get a thorough and precise analysis of the way that sentence might or might not be relevant to analyze market moves, we will conduct a number of different linear regressions. The first one will be a very naïve regression with very minimal dimension reduction on embeddings. Since the original dimension for our embeddings is 1064, we will reduce the dimension to 500, a little less than half of the
 
 ### [Comparing results]{.underline}
 
