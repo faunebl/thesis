@@ -535,7 +535,7 @@ No additional preprocessing has been done before generating embeddings. We can s
 
 Here, we will simply plot the sentence embeddings and try to find out which point relates to which period in time, in order to see if there is any correlation.
 
-![](images/embeddings_year.png){fig-align="center"}
+![Sentence embeddings position per year](images/embeddings_year.png){fig-align="center"}
 
 Here, we can see that there is almost an uncanny relationship between the year and the embeddings. Clearly, embeddings are shifting from the right to the left as time goes on. We can also see that they are getting closer together. However, it is possible that this could be the result of the number of news per day. In order to check if there is a trend in the number of news, we plot it.
 
