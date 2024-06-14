@@ -465,6 +465,82 @@ Please note however that k-means is unsupervised and highly depends on the initi
 
 ### [Link between sentence embeddings and markets]{.underline}
 
+In this part, we will try to see if raw or reduced sentence embeddings can be used to predict the close to close daily returns of the MSCI World Index. Indeed, our database is comprised of a daily plethora of financial news headlines which can be in English or even in other languages such as Chinese. They are news about the entire world and we do not have an effective way of mapping them to a specific country. Therefore, we will generate embeddings daily from all of those sentences. The goal will be the following. First of all, to see if we can visualize a historical trend in the positions of embeddings in the space. For example, by coloring the embeddings according to years or quarters. This will help us to see if the disposition of embeddings have anything to do with financial crises or particuliar market conditions. Unfortunately, our database only starts at the beginning of 2008 and ends at the end of 2015.
+
+Then, we will use linear regressions (first off, ordinary least squares, and then with a variety of dimension reduction techniques) to see if embeddings have an explanatory or predictive power on markets.
+
+#### *Presenting the database*
+
+As previously mentioned, the database starts on the 8th of August 2008 and ends on December 10th, 2015. We will very quickly give the reader an idea of the challenges that the database presented and why.
+
+```{python}
+import polars as pl 
+news = (
+    pl.read_csv(
+        r"C:\Users\faune\Downloads\lab1\lab1\data\dow_jones_news.csv", 
+        separator=';'
+    )
+    .with_columns(
+        pl.col('news').str.split('***')
+    )
+)
+display(
+    news
+    .with_columns(
+        pl.col('news').list.len().alias('nb_news'),
+        pl.col('news').list.join('.').str.len_chars().alias('total_length')
+    )
+    .drop('news','Date')
+    .describe()
+)
+```
+
+Here, we can see that there are a large number of sentences each day, and that the total length of the news can be very high. This poses a problem for generating embeddings, as we are limited by the context length of the model. The maximum character length of the model for one input is 8192. Therefore, we decided to limit the number of strings to 8191, and then cut to the latest end of the sentence using a special character that is very unlikely to appear in usual sentences, but is only one character long.
+
+This means that we arbitrarily cut some headlines out of the equation, but this was the only way to solve this problem in order to get one embedding per day. This also means that there are less variations in the daily amount of news. With this new technique, we can see that we have a much more manageable database :
+
+```{python}
+news = news.sort('Date').with_columns(pl.col('news').list.join('|'))
+news = (
+    news.with_columns(
+        pl.col('news').str.len_chars().alias('length')
+    )
+    .with_columns(
+        pl.when(pl.col('length').ge(8192))
+        .then(pl.col('news').str.head(8191))
+        .otherwise(pl.col('news')).alias('stripped_news')
+    )
+    .with_columns(
+        pl.col('stripped_news')
+        .str.split('|')
+        .list.head(
+            pl.col('stripped_news').str.split('|').list.len()-1
+        ).list.join('|')
+    )
+    .with_columns(pl.col('stripped_news').str.len_chars().alias('stripped_length'))
+)
+display(
+    news
+    .with_columns(
+        pl.col('stripped_news').str.split('|').list.len().alias('nb_news'),
+    )
+    .drop('news', 'stripped_news', 'length', 'Date')
+    .describe()
+)
+```
+
+No additional preprocessing has been done before generating embeddings. We can see that we went from an average of approximately 800 news a day, to an average of a little over 100 headlines a day. However, we also significantly reduced the variance from 55 to 9. This is important in order to isolate the effect that the content of the news has on markets.
+
+#### *Visualizing embeddings*
+
+Here, we will simply plot the sentence embeddings and try to find out which point relates to which period in time, in order to see if there is any correlation.
+
+![](images/embeddings_year.png){fig-align="center"}
+
+Here, we can see that there is almost an uncanny relationship between the year and the embeddings. Clearly, embeddings are shifting from the right to the left as time goes on. We can also see that they are getting closer together. However, it is possible that this could be the result of the number of news per day. In order to check if there is a trend in the number of news, we plot it.
+
+#### *Linear regressions against the MSCI World Index*
+
 ### [Comparing results]{.underline}
 
 ## Conclusion
