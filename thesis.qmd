@@ -531,21 +531,26 @@ display(
 
 No additional preprocessing has been done before generating embeddings. We can see that we went from an average of approximately 800 news a day, to an average of a little over 100 headlines a day. However, we also significantly reduced the variance from 55 to 9. This is important in order to isolate the effect that the content of the news has on markets.
 
+\newpage
+
 #### *Visualizing embeddings*
 
 Here, we will simply plot the sentence embeddings and try to find out which point relates to which period in time, in order to see if there is any correlation.
 
-![Sentence embeddings position per year](images/embeddings_year.png){fig-align="center"}
+![Sentence embeddings position per year](images/embeddings_year.png){fig-align="center" width="50%"}
 
 Here, we can see that there is almost an uncanny relationship between the year and the embeddings. Please note that there are mentions of the current year in the embeddings, but such mentions are very limited. Sentences also contain mentions of other years, in the form of predictions about the future. Clearly, embeddings are shifting from the right to the left as time goes on. We can also see that they are getting closer together. However, it is possible that this could be the result of the number of news per day. In order to check if there is a trend in the number of news, we plot it.
 
-![Number of news per year](images/number_news_year.png){fig-align="center"}
+![Number of news per year](images/number_news_year.png){fig-align="center" width="50%"}
 
 Here, we can see that the number of news per year is indeed decreasing, but not nearly as much as could be initially deduced from the graph.
 
 We can then plot the sentiment label of the news.
 
-![Embeddings with labels](images/embeddings_label.png){fig-align="center"}
+```{=tex}
+\newpage
+```
+![Embeddings with labels](images/embeddings_label.png){fig-align="center" width="50%"}
 
 Here, we can see that there is no particularly visible relationship between the label and the position of the embeddings in the space. If we confront these results with what we observed in the first part of this thesis, this is a particularly interesting result. Indeed, it seems that the model does encode differences between the years, but that this does not translate to differences in raw sentiment. Therefore, this must mean that either our sentiment labels are flawed, or, the model is "more intelligent" than the raw sentiment labels. It might understand some ineffable relationship in the headlines that allows it to recognize economic patterns.
 
