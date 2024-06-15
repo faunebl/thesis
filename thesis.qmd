@@ -553,7 +553,23 @@ We will now test this hypothesis by performing linear regressions on the MSCI Wo
 
 #### *Linear regressions against the MSCI World Index*
 
-In order to get a thorough and precise analysis of the way that sentence might or might not be relevant to analyze market moves, we will conduct a number of different linear regressions. The first one will be a very naïve regression with very minimal dimension reduction on embeddings. Since the original dimension for our embeddings is 1064, we will reduce the dimension to 500, a little less than half of the
+In order to get a thorough and precise analysis of the way that sentence might or might not be relevant to analyze market moves, we will conduct a number of different linear regressions. The first one will be a very naïve regression with very minimal dimension reduction on embeddings. Since the original dimension for our embeddings is 1064, we anticipate that the results of our model will be very overfit. In order to possibly correct this, we will try a few different methods:
+
+-   Reducing the dimension by half with UMAP
+
+-   Reducing the dimension with PCA
+
+-   OLS with norm penalization :
+
+    -   Ridge
+
+    -   Lasso
+
+    -   Elastic Net
+
+We will also try a mix of those models. Lastly, we will try this against the close to close returns as well as the volatility of the index.
+
+In this part, we will only present the models that yield the best results, as there are a number of different models to try and most of them will probably not be adding anything significant to our analysis. Let us first show the results of the most naïve version of the regression, so that we know what we are working with.
 
 ### [Comparing results]{.underline}
 
