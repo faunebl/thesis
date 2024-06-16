@@ -57,6 +57,8 @@ Like any model, transformers are defined by three main characteristics: the type
 
 In this part, we will give the reader a broad understanding of the transformer architecture. First of all, we will give some formal definitions for the mathematical transformations to the data, in order to summarize the general mechanism of a transformer model. Then, we will present an intuitive explanation to sentence embeddings. Finally, we will go over the main mathematical methods used to analyze embeddings.
 
+The references for this summary are [@xiao_2023_introduction][@turner_2024_an][@phuong_2022_formal]
+
 ### [The transformer block: formal mathematical description]{.underline}
 
 The transformer block is the name given to the set of operations which is iteratively applied to the input sequence in order to produce the output of the model. It is comprised of two main stages :
@@ -360,7 +362,9 @@ Then, we can say that the algorithm has converged when the assignment to a clust
 
 ### [Geometry of sentiment]{.underline}
 
-The goal of this part is to see if large language models understand or encode financial sentiment. For this, we will proceed in two parts, that check two different ways in which the models could encode financial sentiment.
+The goal of this part is to see if large language models understand or encode sentiment. We will follow the work presented in [@coenen_2019_visualizing], as well as [@hewitt_2019_a]. In this work, the authors have found a geometrical proof that transformer models encode word meanings, contextual meaning and syntax. However, we want to find a geometrical proof that transformers encode sentiment.
+
+For this, we will proceed in two parts, that check two different ways in which the models could encode financial sentiment.
 
 1.  K-means clustering : the model could put different sentiments in different places in space, in which case we would see clusters that correspond to the labels of sentiment.
 
@@ -678,13 +682,18 @@ def import_sentences( dated: bool = False, consensus: str = "All", reduce_frame:
     """    
     if dated:
         sentences = (
-            pl.read_csv(r"C:\Users\faune\Downloads\lab1\lab1\data\dow_jones_news.csv", separator=';')
+            pl.read_csv(
+                r"C:\Users\faune\Downloads\lab1\lab1\data\dow_jones_news.csv", separator=';'
+            )
             .with_columns(pl.col('news').str.split('***'))
             .explode('news')
             .group_by('Date').agg(pl.col('news'), pl.col('Label').first())
             .sort('Date')
             .rename({'Date': 'date', 'Label': 'label', 'news': 'sentences'})
-            .with_columns(pl.col('label').replace({0:'negative', 1:'positive'}), pl.col('date').cast(pl.Date))
+            .with_columns(
+                pl.col('label').replace({0:'negative', 1:'positive'}), 
+                pl.col('date').cast(pl.Date)
+            )
             .explode('sentences')
             .lazy()
         )
@@ -692,7 +701,10 @@ def import_sentences( dated: bool = False, consensus: str = "All", reduce_frame:
             sentences = (
                 sentences
                 .collect()
-                .filter(pl.col('date').dt.year().gt(2010), pl.col('sentences').str.contains(pattern = '[a-zA-Z]+'))
+                .filter(
+                    pl.col('date').dt.year().gt(2010), 
+                    pl.col('sentences').str.contains(pattern = '[a-zA-Z]+')
+                )
                 .group_by('date')
                 .agg(pl.col('sentences'), pl.col('label').first())
                 .with_columns(pl.col('sentences').list.gather_every(40))
@@ -717,7 +729,8 @@ def import_sentences( dated: bool = False, consensus: str = "All", reduce_frame:
         )
     return sentences
 
-def _get_embeddings_by_chunks(data: list, chunk_size: int, api_key: str = API_KEY): # mostly COPIED FROM https://docs.mistral.ai/capabilities/embeddings/
+def _get_embeddings_by_chunks(data: list, chunk_size: int, api_key: str = API_KEY): 
+    # mostly COPIED FROM https://docs.mistral.ai/capabilities/embeddings/
     client = MistralClient(api_key=api_key)
     chunks = [data[x : x + chunk_size] for x in range(0, len(data), chunk_size)]
     embeddings_response = [
@@ -730,13 +743,16 @@ def get_embeddings(dated: bool = False, consensus: str = 'All', reduce_frame: bo
 
     Args:
         dated (bool, optional): gets the sentences from the dated dataset (origin: lab1). Defaults to False.
-        consensus (str, optional): consensus for the labels on the 2nd dataset (undated, used to train finBERT). Defaults to "All".
-        Can be either "All", "75", "66" or "50". Don't forget to use a string data type even if you use the numbered options.
+        consensus (str, optional): consensus for the labels on the 2nd dataset (undated, used to train finBERT).
+        Defaults to "All".
+        Can be either "All", "75", "66" or "50". Don't forget to use a string data type even if you use the 
+        numbered options.
         reduce_frame (bool, optional): reduces size of the frame from 1m + to ~20 000. Defaults to True.
         (only data after 2011 + only euro characters + divides the nb of sentences per day by 40)
 
     Returns:
-        pl.LazyFrame: lazyframe with 'sentences', 'label' and 'embeddings' columns (and also 'date' if dated = True) 
+        pl.LazyFrame: lazyframe with 'sentences', 'label' and 'embeddings' columns (and also 'date' if dated = 
+        True) 
     """    
     frame = import_sentences(dated=dated, consensus=consensus, reduce_frame=reduce_frame)
     return (
@@ -744,7 +760,10 @@ def get_embeddings(dated: bool = False, consensus: str = 'All', reduce_frame: bo
         .with_columns(
             pl.Series(
                 name= 'embeddings', 
-                values= _get_embeddings_by_chunks(frame.select('sentences').collect().to_series().to_list(), 50)
+                values= _get_embeddings_by_chunks(
+                    frame.select('sentences').collect().to_series().to_list(),
+                    50
+                )
             )
         )
         .lazy()
@@ -818,10 +837,16 @@ print('Merging the output to make the correspondance between positive and neg se
 positive_quantile_df = df.loc[(df.label==1) & (df.quantile_len==quantile),:]
 negative_quantile_df = df.loc[(df.label==0) & (df.quantile_len==quantile),:]
 positive_quantile_df['neg_closest_idx'] = np.argmax(matrix,axis=1)
-merged = positive_quantile_df.merge(negative_quantile_df[['negative_idx','sentence','processed']].rename({'sentence':'neg_sentence','processed':'neg_processed'},axis=1),
+merged = (
+    positive_quantile_df
+    .merge(
+        negative_quantile_df[['negative_idx','sentence','processed']]
+        .rename(
+            {'sentence':'neg_sentence','processed':'neg_processed'},axis=1),
                             how='left',
                             left_on='neg_closest_idx',
                             right_on='negative_idx')
+)
 
 embeddings = pl.read_parquet(path)
 
@@ -834,27 +859,40 @@ matched_sentences = (
     .select(pl.exclude('idx', 'label', 'label_neg'))
 )
 
-with_metrics = (matched_sentences.unique().with_columns(
-        matched_sentences.with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
-        .map_rows(function=lambda t : tuple(cosine_similarity(X=np.array(t[4]).reshape(1, -1), Y=np.array(t[5]).reshape(1, -1)).tolist()))
+with_metrics = (
+    matched_sentences.unique().with_columns(
+         matched_sentences
+        .with_columns(
+            pl.col('embeddings').list.to_array(1024),
+            pl.col('embeddings_neg').list.to_array(1024)
+        )
+        .map_rows(
+            function=lambda t : tuple(cosine_similarity(X=np.array(t[4]).reshape(1, -1), 
+                                                        Y=np.array(t[5]).reshape(1, -1)).tolist()))
     )
     .explode('column_0')
     .sort('column_0')
     .rename({'column_0': 'cosine_similarity'})
     .with_columns(
-        matched_sentences.with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
+        matched_sentences
+        .with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
         .map_rows(function=lambda t :np.dot(a=t[4], b=np.transpose(t[5])))
     )
     .rename({'map': 'dot_product'})
     .sort('cosine_similarity')
     .with_columns(
-        matched_sentences.with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
-        .map_rows(function=lambda t : tuple(euclidean_distances(X=np.array(t[4]).reshape(1, -1), Y=np.array(t[5]).reshape(1, -1)).tolist()))
+        matched_sentences
+        .with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
+        .map_rows(
+            function=lambda t : tuple(
+                euclidean_distances(X=np.array(t[4]).reshape(1, -1),
+                                                          Y=np.array(t[5]).reshape(1, -1)).tolist()))
     )
     .explode('column_0')
     .rename({'column_0':'euclidean_distance'})
     .with_columns(
-        matched_sentences.with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
+        matched_sentences
+        .with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
         .map_rows(function=lambda t :np.linalg.norm(x=t[4]) -np.linalg.norm(x=t[5]))
     )
     .rename({'map':'norm_difference'})
