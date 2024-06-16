@@ -547,9 +547,8 @@ Here, we can see that the number of news per year is indeed decreasing, but not 
 
 We can then plot the sentiment label of the news.
 
-```{=tex}
 \newpage
-```
+
 ![Embeddings with labels](images/embeddings_label.png){fig-align="center" width="50%"}
 
 Here, we can see that there is no particularly visible relationship between the label and the position of the embeddings in the space. If we confront these results with what we observed in the first part of this thesis, this is a particularly interesting result. Indeed, it seems that the model does encode differences between the years, but that this does not translate to differences in raw sentiment. Therefore, this must mean that either our sentiment labels are flawed, or, the model is "more intelligent" than the raw sentiment labels. It might understand some ineffable relationship in the headlines that allows it to recognize economic patterns.
