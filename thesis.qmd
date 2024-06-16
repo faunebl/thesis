@@ -593,10 +593,455 @@ Here, we can see that the model is obviously wildly overfit. We will therefore t
 
 Here, we can see that there is effectively no effect and no relationship between the data.
 
-### [Comparing results]{.underline}
+We have tried this over multiple indexes (Dow Jones, S&P, VIX, Russell 2000, Footsie and others), and they all yield the same results.
+
+#### *Logistic Regressions against the MSCI World Index*
+
+Since the exact returns of the MSCI cannot be determined with a linear regression, we perhaps thought that the model could more easily classify a specific quantile of returns. Meaning, even if the model can't be used to predict the *exact* return, it could potentially be used to predict if the returns are in the highest or lowest tranche. This could make sense since the news do not explain every single market variation, but they might explain a good part of the very drastic variations.
+
+To check this, we can try to plot the embeddings and color by the quantiles, in order to see if there are apparent clusters ressembling the ones we had for the sentiment labels with movie reviews.
+
+![Embeddings by quantiles](images/embeddings_quantiles.png){fig-align="center" width="50%"}
+
+Here, we can see that there are no particular clusters in the data, besides the relationship we noticed earlier which maps embeddings to years. Here, we can see that during the 2008-2009 crisis, embeddings are more likely to belong to the 1st or to the last quantile, showing the important market volatility during this time.
+
+Let's now show the confusion matrices for the results of our logistic regressions. Just like before, if we see that the model is overfit, we will try l2 penalization and then fitting the model on a reduction of the data using PCA and then UMAP.
+
+Here are our results for this analysis.
+
+![Logistic Regression, Raw Embeddings, No Penalty](images/log_reg_embed.png){fig-align="center" width="50%"}
+
+![Logistic Regression, Raw Embeddings, L2 Penalty](images/log_reg_l2.png){fig-align="center" width="50%"}
+
+![Logistic Regression, Reduced with PCA](images/log_reg_pca.png){fig-align="center" width="50%"}
+
+![Logistic Regression, Reduced with UMAP](images/log_reg_reduced.png){fig-align="center" width="50%"}
+
+\newpage
+
+It is pretty much apparent that, just like with the linear regession, we can't seem to have a significant model which is not overfit during the training period.
+
+If the reader is interesting in getting the specific metrics, we invite them to use the `get_logistic_reg()` function presented in the Annexe.
+
+One thing to note is that the dimenstion reduction seemed much more useful when using a PCA to decompose the vectors. However, we can see that
+
+\newpage
 
 ## Conclusion
 
-## Bibliography
+In this analysis, we have tried to blend multiple areas of research together in order to explore the way that Large Language Models (LLMs) encode, or don't, events on financial markets. The idea was that, maybe, somewhere in the sentence embeddings of the model, there was some valuable and ineffable information about markets which could be exploited in order to create trading signals. We also wanted to explore the way that sentiment was or wasn't encoded in the model, in order to compare this result with the result on the link between financial headlines and markets. For this, we have used two datasets: one labelled datasetnthat was exclusively focused on sentiment, and another which was only a bank of dated financial headlines.
+
+We have found meaningful clusters in the sentiment dataset, where human generated sentiment labels are found to replicate the natural unsupervised mathematical clusters. This points towards the direction that the model does encode sentiment and that this can be understood by the subspace that a certain embedding belongs to. This adds to existing research as it had only found a meaningful relationship between embeddings and specific word meaning, or between embeddings and sentence structure or syntax. However, we have also tried to match sentences together by their similarity, and in this way we have not been able to find a very significant relationship between the vectors, although the distribution of the cosine similarity and the euclidian distance did hint towards a typical difference between two similar vectors of opposite sentiment. This part of the analysis was generally inconclusive.
+
+This means that although the model does place different sentence sentiments in different locations in the embedding space, this might not necessarily translate to the financial world. Indeed, our first dataset was comprised of movie reviews, which are generally composed of the same words and have a clear and distinct sentiment. However, in the financial world, things are much more complex. Some words may come up very often during certain years, and then not at all. There are a lot more numbers, and the sentiment is not always clear. In short, the data is much more noisy and harder to analyze. However, we thought that maybe all of this noise might give us additional information which could help the model in understanding market phenomenons. Therefore, we tried to find a regression which could help us to predict market moves from sentence embeddings.
+
+However, the results of such regressions were unsuccessful. It seems that there is simply too much noise in the data to really get a clear "answer" from the model as to whether or not it is bull or bear on the market. This might be for a variety of reasons. For instance, not having data that related to hours and minutes forced us to cram multiple sentences together and generate one embedding per day. This also limited our sample size since we were limited by the context size of the model. This means that there will be even more noise in our data. Secondly, we have a dataset which is very hard to compare to a specific index, since it contains worldwide news. The ideal dataset for this analysis would be a lot more granular. This means that although we couldn't make the regressions work here, this does not exclude the possibility that LLMs encode information which could be useful to traders.
+
+\newpage
 
 ## Annexe
+
+### [Generating embeddings]{.underline}
+
+```{python}
+#! eval: false
+#| output: false
+#| code-overflow: wrap
+
+from api_key import API_KEY
+from mistralai.client import MistralClient
+import polars as pl 
+
+"""
+Functions to import either the labelled data or the dated data 
+Adds embeddings with mistral AI 
+Generated polars lazyframe with columns : sentences, labels, embeddings OR dates, sentences, embeddings
+"""
+
+
+def import_sentences( dated: bool = False, consensus: str = "All", reduce_frame: bool = True) -> pl.LazyFrame:
+    """gets the raw formatted data from both data sets
+
+    Args:
+        dated (bool, optional): gets the sentences from the dated dataset (origin: lab1). Defaults to False.
+        consensus (str, optional): consensus for the labels on the 2nd dataset (undated, used to train finBERT). Defaults to "All".
+        Can be either "All", "75", "66" or "50". Don't forget to use a string data type even if you use the numbered options.
+        reduce_frame (bool, optional): reduces size of the frame from 1m + to ~20 000. Defaults to True.
+        (only data after 2011 + only euro characters + divides the nb of sentences per day by 40)
+
+    Returns:
+        pl.LazyFrame: lazyframe with 'sentences' and 'label' columns (and also 'date' if dated = True) 
+    """    
+    if dated:
+        sentences = (
+            pl.read_csv(r"C:\Users\faune\Downloads\lab1\lab1\data\dow_jones_news.csv", separator=';')
+            .with_columns(pl.col('news').str.split('***'))
+            .explode('news')
+            .group_by('Date').agg(pl.col('news'), pl.col('Label').first())
+            .sort('Date')
+            .rename({'Date': 'date', 'Label': 'label', 'news': 'sentences'})
+            .with_columns(pl.col('label').replace({0:'negative', 1:'positive'}), pl.col('date').cast(pl.Date))
+            .explode('sentences')
+            .lazy()
+        )
+        if reduce_frame:
+            sentences = (
+                sentences
+                .collect()
+                .filter(pl.col('date').dt.year().gt(2010), pl.col('sentences').str.contains(pattern = '[a-zA-Z]+'))
+                .group_by('date')
+                .agg(pl.col('sentences'), pl.col('label').first())
+                .with_columns(pl.col('sentences').list.gather_every(40))
+                .explode('sentences')
+                .sort('date')
+                .lazy()
+            )
+    else:
+        sentences = (
+            pl.read_csv(
+                source= fr"C:\Users\faune\Downloads\FinancialPhraseBank-v1.0\FinancialPhraseBank-v1.0\Sentences_{consensus}Agree.txt",
+                separator="\t",
+                ignore_errors=True,
+                has_header=False
+            )
+            .rename({'column_1': 'sentences'})
+            .select(pl.col('sentences').str.split('@').list.to_struct()).unnest('sentences')
+            .rename({'field_0': 'sentences', 'field_1':'label'})
+            .drop_nulls()
+            .unique()
+            .lazy()
+        )
+    return sentences
+
+def _get_embeddings_by_chunks(data: list, chunk_size: int, api_key: str = API_KEY): # mostly COPIED FROM https://docs.mistral.ai/capabilities/embeddings/
+    client = MistralClient(api_key=api_key)
+    chunks = [data[x : x + chunk_size] for x in range(0, len(data), chunk_size)]
+    embeddings_response = [
+        client.embeddings(model="mistral-embed", input=c) for c in chunks
+    ]
+    return [d.embedding for e in embeddings_response for d in e.data] 
+
+def get_embeddings(dated: bool = False, consensus: str = 'All', reduce_frame: bool = True) -> pl.LazyFrame:
+    """gets the data along with an "embeddings" column
+
+    Args:
+        dated (bool, optional): gets the sentences from the dated dataset (origin: lab1). Defaults to False.
+        consensus (str, optional): consensus for the labels on the 2nd dataset (undated, used to train finBERT). Defaults to "All".
+        Can be either "All", "75", "66" or "50". Don't forget to use a string data type even if you use the numbered options.
+        reduce_frame (bool, optional): reduces size of the frame from 1m + to ~20 000. Defaults to True.
+        (only data after 2011 + only euro characters + divides the nb of sentences per day by 40)
+
+    Returns:
+        pl.LazyFrame: lazyframe with 'sentences', 'label' and 'embeddings' columns (and also 'date' if dated = True) 
+    """    
+    frame = import_sentences(dated=dated, consensus=consensus, reduce_frame=reduce_frame)
+    return (
+        frame
+        .with_columns(
+            pl.Series(
+                name= 'embeddings', 
+                values= _get_embeddings_by_chunks(frame.select('sentences').collect().to_series().to_list(), 50)
+            )
+        )
+        .lazy()
+    )
+```
+
+### [Matching sentences]{.underline}
+
+```{python}
+#| eval: false
+#| output: false
+#| code-overflow: wrap
+
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.stem.porter import PorterStemmer
+import pandas as pd
+import polars as pl
+import polars.selectors as cs
+import string
+from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import euclidean_distances
+import numpy as np
+import utils
+path = r'C:\Users\faune\Desktop\thesis\stanford_sentiment.parquet'
+
+print('Downloading necessary resources...')
+nltk.download('punkt')
+nltk.download('stopwords')
+df = pd.read_parquet(path)
+print('Initialize the stemmer and stop words')
+stemmer = PorterStemmer()
+stop_words = set(stopwords.words('english'))
+
+def process_text(text):
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    word_tokens = word_tokenize(text)
+    stems = [stemmer.stem(word) for word in word_tokens]
+    return stems
+
+df['processed'] = df['sentence'].apply(process_text)
+
+print('Create a vocabulary of all unique words')
+vocab = sorted(set(word for tokens in df['processed'].values for word in tokens))
+
+print('One-hot encode the words using MultiLabelBinarizer')
+mlb = MultiLabelBinarizer(classes=vocab)
+
+
+print('Compute quantiles and get the index for the selected quantile')
+df['len'] = df['processed'].apply(len)
+q=10
+df['quantile_len'] = pd.qcut(df['len'],q=q,labels=[f'q{i}' for i in range(1,q+1)])
+
+quantile = 'q10'
+
+df['positive_idx'] = -1
+df['negative_idx'] = -1
+df.loc[(df.label==0) & (df.quantile_len==quantile),'negative_idx'] = df.loc[(df.label==0) & (df.quantile_len==quantile)].reset_index().index.astype('Int64')
+df.loc[(df.label==1) & (df.quantile_len==quantile),'positive_idx'] = df.loc[(df.label==1) & (df.quantile_len==quantile)].reset_index().index.astype('Int64')
+
+print('Compute the gram matrix over the quantile (x positive, y negative)')
+X = mlb.fit_transform(df.loc[(df['label']==1) & (df.quantile_len==quantile),'processed'])
+Y = mlb.fit_transform(df.loc[(df['label']==0) & (df.quantile_len==quantile),'processed'])
+matrix = X@Y.T
+
+
+print('Merging the output to make the correspondance between positive and neg sentences')
+positive_quantile_df = df.loc[(df.label==1) & (df.quantile_len==quantile),:]
+negative_quantile_df = df.loc[(df.label==0) & (df.quantile_len==quantile),:]
+positive_quantile_df['neg_closest_idx'] = np.argmax(matrix,axis=1)
+merged = positive_quantile_df.merge(negative_quantile_df[['negative_idx','sentence','processed']].rename({'sentence':'neg_sentence','processed':'neg_processed'},axis=1),
+                            how='left',
+                            left_on='neg_closest_idx',
+                            right_on='negative_idx')
+
+embeddings = pl.read_parquet(path)
+
+matched_sentences = (
+    pl.DataFrame(merged)
+    .select('sentence', 'processed', 'neg_sentence', 'neg_processed')
+    .join(embeddings, on = 'sentence')
+    .drop('idx')
+    .join(embeddings.rename({'sentence': 'neg_sentence'}), on = 'neg_sentence', suffix = '_neg')
+    .select(pl.exclude('idx', 'label', 'label_neg'))
+)
+
+with_metrics = (matched_sentences.unique().with_columns(
+        matched_sentences.with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
+        .map_rows(function=lambda t : tuple(cosine_similarity(X=np.array(t[4]).reshape(1, -1), Y=np.array(t[5]).reshape(1, -1)).tolist()))
+    )
+    .explode('column_0')
+    .sort('column_0')
+    .rename({'column_0': 'cosine_similarity'})
+    .with_columns(
+        matched_sentences.with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
+        .map_rows(function=lambda t :np.dot(a=t[4], b=np.transpose(t[5])))
+    )
+    .rename({'map': 'dot_product'})
+    .sort('cosine_similarity')
+    .with_columns(
+        matched_sentences.with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
+        .map_rows(function=lambda t : tuple(euclidean_distances(X=np.array(t[4]).reshape(1, -1), Y=np.array(t[5]).reshape(1, -1)).tolist()))
+    )
+    .explode('column_0')
+    .rename({'column_0':'euclidean_distance'})
+    .with_columns(
+        matched_sentences.with_columns(pl.col('embeddings').list.to_array(1024),pl.col('embeddings_neg').list.to_array(1024))
+        .map_rows(function=lambda t :np.linalg.norm(x=t[4]) -np.linalg.norm(x=t[5]))
+    )
+    .rename({'map':'norm_difference'})
+)
+```
+
+### [Clustering]{.underline}
+
+```{python}
+#| eval: false
+#| output: false
+#| code-overflow: wrap
+
+kmeans = KMeans(n_clusters=2, random_state=2)
+frame = frame.with_columns(
+    pl.Series(
+        name= 'clusters',
+        values= kmeans.fit_predict(frame.select('embeddings').to_series().to_list())
+    )
+)
+
+umap_clusters = hdbscan.HDBSCAN().fit_predict(frame.select('reduced').to_series().to_list())
+
+sns.scatterplot(data = frame.with_columns(pl.col('reduced').list.to_struct()).unnest('reduced').to_pandas(), x = 'field_0', y = 'field_1', hue = 'clusters')
+
+
+```
+
+### [Pre-process for regressions]{.underline}
+
+```{python}
+#| eval: false
+#| output: false
+#| code-overflow: wrap
+
+sentences = pl.read_parquet(r"C:\Users\faune\Desktop\thesis\daily_headlines.parquet")
+msci_world = get_data(ticker=ticker, start_date="2008-01-01", end_date="2016-01-01")
+msci_close = pl.DataFrame(msci_world[['close']].dropna().pct_change().reset_index())
+to_join = msci_close.drop_nulls().with_columns(pl.col('index').cast(pl.Date)).rename({'index': 'date'})
+sentences = sentences.with_columns(pl.col('date').cast(pl.Date))
+frame = sentences.join(to_join, on='date').with_columns(pl.col('date').dt.quarter().alias('quarter'), pl.col('date').dt.year().alias('year'))
+reducer = umap.UMAP(n_components=n_components)
+reduced = reducer.fit_transform(frame.select('embeddings').to_series().to_list())
+decomposer = KernelPCA(n_components=n_components)
+decomposed =decomposer.fit_transform(frame.select('embeddings').to_series().to_list())
+
+frame = frame.with_columns(pl.Series(name = 'reduced', values = reduced))
+frame = frame.with_columns(pl.Series(name = 'decomposed', values = decomposed))
+
+frame = frame.sort('date').set_sorted('date').with_columns(pl.col('close').rolling_std(by='date', window_size = '1w').alias('std')).drop_nulls()
+
+frame = frame.with_columns(pl.col('close').rolling_mean(window_size = '1mo', by='date').alias('mean'))
+
+returns = frame.select('close').to_series()
+q10 = returns.quantile(0.10)
+q20 = returns.quantile(0.20)
+q80 = returns.quantile(0.80)
+q90 = returns.quantile(0.90)
+
+frame = (
+    frame
+    .with_columns(
+        pl.when((pl.col('close')>=(q90))).then(1)
+        .when((pl.col('close')>=(q80)) & (pl.col('close')<(q90))).then(2)
+        .when((pl.col('close')>=(q20)) & (pl.col('close')<(q80))).then(3)
+        .when((pl.col('close')>=(q10)) & (pl.col('close')<(q20))).then(4)
+        .when((pl.col('close')<(q10))).then(5)
+        .alias('quantiles')
+    )
+)
+```
+
+### [Linear Regressions]{.underline}
+
+```{python}
+#| eval: false
+#| output: false
+#| code-overflow: wrap
+
+def get_linear_regression(x_col: str, y_col: str, df: pl.DataFrame, model_type: str, intercept: bool = True, start_year: int =2008):
+    if model_type == 'ols':
+        model = LinearRegression(fit_intercept=intercept)
+    elif model_type == 'ridge':
+        model = Ridge(fit_intercept=intercept)
+    elif model_type == 'lasso':
+        model = Lasso(fit_intercept=intercept)
+    elif model_type == 'elastic net':
+        model = ElasticNet(fit_intercept=intercept)
+
+    df = df.filter(pl.col('date').dt.year().ge(start_year))
+
+    X = df.select(pl.col(x_col)).to_series().to_list()
+    y = df.select(pl.col(y_col)).to_series().to_list()
+    
+    ind = -int(len(X)/3)
+
+    reg = model.fit(X[:ind], y[:ind])
+
+    out_of_sample = np.dot(a=reg.coef_, b=np.transpose(X[ind:]))
+    in_sample = reg.predict(X[:ind])
+    predicted = np.append(in_sample, out_of_sample)
+
+    with_predicted = df.with_columns(pl.Series(name = "predictions", values = predicted))
+    with_predicted = with_predicted.select('date', y_col, 'predictions') 
+
+    sns.set_theme(context='notebook', rc={'figure.figsize':(20,5)}, palette=sns.cubehelix_palette(2), style='white')
+    sns.lineplot(data = with_predicted.to_pandas().set_index('date'))
+    plt.axvline(with_predicted.select('date')[ind].to_series().to_list()[0], 0,1, color = 'blue')
+    plt.text(x=with_predicted.select('date')[ind].to_series().to_list()[0] + relativedelta(years=1), y = max(out_of_sample) + 0.05, s = "Out of Sample")
+
+    # print("Coefficients: \n", reg.coef_)
+    plt.text(x=with_predicted.select('date')[0].to_series().to_list()[0] - relativedelta(years=3, month=10),y=0,s=f"Mean squared error (in sample): {mean_squared_error(y[:ind], in_sample):.2f}")
+    plt.text(x=with_predicted.select('date')[0].to_series().to_list()[0] - relativedelta(years=3, month=10),y=-0.01,s=f"Coefficient of determination (in sample): {r2_score(y[:ind], in_sample):.2f}")
+    plt.text(x=with_predicted.select('date')[0].to_series().to_list()[0] - relativedelta(years=3, month=10),y=-0.02,s=f"Mean squared error (out of sample): {mean_squared_error(y[ind:], out_of_sample):.2f}")
+    plt.text(x=with_predicted.select('date')[0].to_series().to_list()[0] - relativedelta(years=3, month=10),y=-0.03,s= f"Coefficient of determination (out of sample): {r2_score(y[ind:], out_of_sample):.2f}")
+
+    print(f"Mean squared error (in sample): {mean_squared_error(y[:ind], in_sample):.2f}")
+    print(f"Coefficient of determination (in sample): {r2_score(y[:ind], in_sample):.2f}")
+    print(f"Mean squared error (out of sample): {mean_squared_error(y[ind:], out_of_sample):.2f}")
+    print(f"Coefficient of determination (out of sample): {r2_score(y[ind:], out_of_sample):.2f}")
+    print(f"Average of the prediction : {np.mean(out_of_sample)}")
+    print(f"Average of the true values : {np.mean(y[ind:])}")
+    print(f"Std of the prediction : {np.std(out_of_sample)}")
+    print(f"Std of the true values : {np.std(y[ind:])}")
+
+    return
+```
+
+### [Logistic Regressions]{.underline}
+
+```{python}
+#| eval: false
+#| output: false
+#| code-overflow: wrap
+
+def get_logistic_regression(df: pl.DataFrame, penalty: str, x_col: str, y_col: str = 'quantiles'):
+    model = LogisticRegression(penalty=penalty, multi_class='multinomial')
+    X = df.select(pl.col(x_col)).to_series().to_list()
+    y = df.select(pl.col(y_col)).to_series().to_list()
+
+    ind = -int(len(X)/3)
+
+    X_test = X[ind:]
+    X_train = X[:ind]
+
+    y_test = y[ind:]
+    y_train = y[:ind]
+
+    reg = model.fit(X_train, y_train)
+
+    out_of_sample = reg.predict(X_test)
+    in_sample = reg.predict(X_train)
+
+    print('Accuracy:', accuracy_score(y_train, in_sample))
+    print('Precision:', precision_score(y_train, in_sample, average='weighted'))
+    print('Recall:', recall_score(y_train, in_sample, average='weighted'))
+    print('F1 score:', f1_score(y_train, in_sample, average='weighted'))
+    print('Confusion matrix:\n', confusion_matrix(y_train, in_sample))
+
+    print('Accuracy (Out of Sample):', accuracy_score(y_test, out_of_sample))
+    print('Precision (Out of Sample):', precision_score(y_test, out_of_sample, average='weighted'))
+    print('Recall (Out of Sample):', recall_score(y_test, out_of_sample, average='weighted'))
+    print('F1 score (Out of Sample):', f1_score(y_test, out_of_sample, average='weighted'))
+    print('Confusion matrix (Out of Sample):\n', confusion_matrix(y_test, out_of_sample))
+
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+
+    cm = confusion_matrix(y_train, in_sample)
+    axs[0].matshow(cm, cmap=plt.cm.Blues)
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            axs[0].text(j, i, cm[i, j], ha='center', va='center')
+    axs[0].set_xlabel('Predicted Class')
+    axs[0].set_ylabel('True Class')
+    axs[0].set_title('In Sample')
+
+    cm = confusion_matrix(y_test, out_of_sample)
+    axs[1].matshow(cm, cmap=plt.cm.Blues)
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            axs[1].text(j, i, cm[i, j], ha='center', va='center')
+    axs[1].set_xlabel('Predicted Class')
+    axs[1].set_ylabel('True Class')
+    axs[1].set_title('Out of Sample')
+
+    plt.tight_layout()
+    plt.show()
+    
+    return
+```
+
+### [Miscellaneous]{.underline}
+
+Everything else (executable notebooks, etc) can be found on the github for this masters thesis : [Github Thesis](https://github.com/faunebl/thesis)
