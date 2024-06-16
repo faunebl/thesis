@@ -13,6 +13,7 @@ format:
     toc: true
     toc-depth: 4
     number-sections: true
+    cite-method: biblatex
 css: |
   p {
     text-align: justify;
@@ -22,6 +23,9 @@ jupyter:
     name: python3
     language: python
     display_name: python3
+bibliography: bibliography.bib
+nocite: |
+  @*
 ---
 
 \newpage
