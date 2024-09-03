@@ -1087,3 +1087,5 @@ def get_logistic_regression(df: pl.DataFrame, penalty: str, x_col: str, y_col: s
 ### [Miscellaneous]{.underline}
 
 Everything else (executable notebooks, etc) can be found on the github for this masters thesis : [Github Thesis](https://github.com/faunebl/thesis)
+
+test
